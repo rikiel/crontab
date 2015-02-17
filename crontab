@@ -1,0 +1,13 @@
+# CRONTAB
+
+SHELL = /bin/bash
+AHOJ = ahoj ahoj
+HOME = /home $SHELL $AHOJ $AHOJ $AHOJ $SHELL
+
+# gkldsaj
+#gdas
+# SHELL = gkdasl
+
+#min hour dayOfMonth month dayOfWeek COMMAND
+* * * * * $SHELL -e echo "exec"
+1 2 3 4 5 $HOME $SHELL $SHELL $AHOJ
