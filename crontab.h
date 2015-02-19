@@ -23,6 +23,20 @@
 #define CRONTAB_H
 
 #include "conf.h"
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+
+
+void run_command(const char* command);
+
+void schedule_cron(time_t t);
+
+void sort_commands(struct command* c);
+
+
+
 
 
 #endif /* !CRONTAB_H */

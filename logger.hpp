@@ -7,6 +7,10 @@ extern log4cpp::Category& logger;
 #define ERROR(...)  logger.info(__VA_ARGS__)
 #define LOG(...)    logger.notice(__VA_ARGS__)
 
+
+
+
+
 #ifdef LOGGER_COMPILE
 
 #include <log4cpp/Appender.hh>

@@ -176,7 +176,7 @@ void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_O
     char *write_buf;
 
     strcpy(readbegin, text_in);
-    INFO("INPUT_TEXT: %s", readbegin);
+    //INFO("INPUT_TEXT: %s", readbegin);
     while(v)
     {
         read_buf = readbegin;
@@ -185,13 +185,13 @@ void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_O
 
         strcpy(regstr + 2, v->name);    // vytvori regexp "\$PREMENNA"
         compile_regex(&reg, regstr);
-        DEBUG("REGEXP: %s", regstr);
+        //DEBUG("REGEXP: %s", regstr);
 
         // v cykle prechadza vsetky vyskyty $PREMENNA v texte a nahradzuje ich za vysledok...
         // prechadza iba jednorazovo.. 
         while(regexec(&reg, read_buf, 1, &match, 0) == 0)
         {
-            DEBUG("readbuf1: %s", read_buf);
+            //DEBUG("readbuf1: %s", read_buf);
             // skopiruje prvych n znakov do vyskytu $PREMENNA
             n = min((size_t)match.rm_so, maxlength);
             strncpy(write_buf, read_buf, n);
@@ -199,23 +199,23 @@ void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_O
             write_buf += n;
             read_buf += match.rm_eo;
             maxlength -= n;
-            DEBUG("out1: '%s'", writebegin);
+            //DEBUG("out1: '%s'", writebegin);
 
-            DEBUG("readbuf2: %s", read_buf);
+            //DEBUG("readbuf2: %s", read_buf);
             // skopiruje substituciu za $PREMENNA
             n = min(strlen(v->substitution), maxlength);
             strncpy(write_buf, v->substitution, n);
             write_buf[n] = '\0';
             write_buf += n;
             maxlength -= n;
-            DEBUG("out2: '%s'", writebegin);
+            //DEBUG("out2: '%s'", writebegin);
         }
 
         // skopiruje zvysok, teda string po vyskyte $PREMENNA + '\0'
         n = min(strlen(read_buf), maxlength);
         strncpy(write_buf, read_buf, n);
         write_buf[n] = '\0';
-        DEBUG("out3: '%s'", writebegin);
+        //DEBUG("out3: '%s'", writebegin);
 
         // swap read and write buffer
         write_buf = readbegin;
@@ -234,7 +234,7 @@ void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_O
 
 void fill_command(struct command* c, char* text)
 {
-    DEBUG("TEXT: %s", text);
+    //DEBUG("TEXT: %s", text);
     regex_t reg;
     regmatch_t match;
 
@@ -244,7 +244,7 @@ void fill_command(struct command* c, char* text)
     regfree(&reg);
     text[match.rm_eo - 1] = '\0';
     c->min = (text[match.rm_so] == '*' ? -1 : atoi(text));
-    cout << (int)c->min << " ";
+    //cout << (int)c->min << " ";
     text += match.rm_eo;
 
     //DEBUG(text);
@@ -253,7 +253,7 @@ void fill_command(struct command* c, char* text)
     regfree(&reg);
     text[match.rm_eo - 1] = '\0';
     c->hour = (text[match.rm_so] == '*' ? -1 : atoi(text));
-    cout << (int)c->hour << " ";
+    //cout << (int)c->hour << " ";
     text += match.rm_eo;
 
     //DEBUG(text);
@@ -262,7 +262,7 @@ void fill_command(struct command* c, char* text)
     regfree(&reg);
     text[match.rm_eo - 1] = '\0';
     c->dom = (text[match.rm_so] == '*' ? -1 : atoi(text));
-    cout << (int)c->dom << " ";
+    //cout << (int)c->dom << " ";
     text += match.rm_eo;
 
     //DEBUG(text);
@@ -271,7 +271,7 @@ void fill_command(struct command* c, char* text)
     regfree(&reg);
     text[match.rm_eo - 1] = '\0';
     c->month = (text[match.rm_so] == '*' ? -1 : atoi(text));
-    cout << (int)c->month << " ";
+    //cout << (int)c->month << " ";
     text += match.rm_eo;
 
     //DEBUG(text);
@@ -279,8 +279,8 @@ void fill_command(struct command* c, char* text)
     regexec(&reg, text, 1, &match, 0);
     regfree(&reg);
     text[match.rm_eo - 1] = '\0';
-    c->dow = (text[match.rm_so] == '*' ? -1 : atoi(text));
-    cout << (int)c->dow << " ";
+    c->dow = (text[match.rm_so] == '*' ? -1 : atoi(text) % 7);  // 7 -> 0
+    //cout << (int)c->dow << " ";
     text += match.rm_eo;
 
     //DEBUG(text);
@@ -288,7 +288,7 @@ void fill_command(struct command* c, char* text)
     regexec(&reg, text, 1, &match, 0);
     regfree(&reg);
     strncpy(c->command, text + match.rm_so, CONF_COMMAND_MAXLENGHT);
-    cout << c->command << endl;
+    //cout << c->command << endl;
 }
 
 command* read_file(const char* filename)
@@ -348,7 +348,7 @@ command* read_file(const char* filename)
     }
     free(line);
     fclose(input);
-
+/*
     INFO("VARIABLES: ");
     var_end = var_begin.next;
     while (var_end)
@@ -370,7 +370,7 @@ command* read_file(const char* filename)
         INFO(s.str());
         com_end = com_end->next;
     }
-
+*/
     return com_begin.next;
 }
 
