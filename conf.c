@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 
 #include <iostream>
@@ -56,6 +57,8 @@ using namespace std;
                                 CONF_COMMAND_REGEX_MON \
                                 CONF_COMMAND_REGEX_DOW \
                                 CONF_COMMAND_REGEX_COM
+
+extern char **environ;
 
 struct vars
 {
@@ -132,6 +135,7 @@ int check_line(const char* line)
 
 void fill_variable(char name[VAR_NAME_MAXLENGTH], char substitution[VAR_SUBSTITUTION_MAXLENGTH], char* text)
 {
+    DEBUG("TEXT: %s\n", text);
     regex_t reg;
     regmatch_t match;
     char* name_begin;
@@ -142,25 +146,39 @@ void fill_variable(char name[VAR_NAME_MAXLENGTH], char substitution[VAR_SUBSTITU
     regexec(&reg, text, 1, &match, 0);
     name_begin = text + match.rm_so;
     name_end = text + match.rm_eo;
-    *(name_end - 1) = '\0';
+    name_end[-1] = '\0';
+    //*(name_end - 1) = '\0';
     regfree(&reg);
 
     // zmaze biele znaky nakonci nazvu...
     compile_regex(&reg, "[[:blank:]]*$");
     regexec(&reg, name_begin, 1, &match, 0);
-    *(name_begin + match.rm_so) = '\0';
+    name_begin[match.rm_so] = '\0';
     // aj nakonci obsahu
     regexec(&reg, name_end, 1, &match, 0);
-    *(name_end + match.rm_so) = '\0';
+    name_end[match.rm_so] = '\0';
     regfree(&reg);
     // a aj na zaciatku obsahu...
     compile_regex(&reg, "^[[:blank:]]*");
     regexec(&reg, name_end, 1, &match, 0);
     name_end = name_end + match.rm_eo;
 
-    //INFO("creating new variable '%s'='%s'", name_begin, name_end);
-    strcpy(name, name_begin);
-    strcpy(substitution, name_end);
+    INFO("creating new variable '%s'='%s'", name_begin, name_end);
+    strncpy(name, name_begin, VAR_NAME_MAXLENGTH);
+    strncpy(substitution, name_end, VAR_SUBSTITUTION_MAXLENGTH);
+
+    name[VAR_NAME_MAXLENGTH] = '\0';
+    substitution[VAR_SUBSTITUTION_MAXLENGTH] = '\0';
+
+
+    // TODO: PO odkomentovani hadze bud malloc() memory corruption, alebo segfault... 
+    //
+    //
+    //if (strlen(name) != strlen(name_begin))
+        //ERROR("variable '%s' is longer than maximum, truncating to '%s'!", name_begin, name);
+    //DEBUG("%s :\t %s :\t %s", name, name_end, substitution);
+    //if (strlen(substitution) != strlen(name_end))
+        //ERROR("substitution of variable '%s' as '%s' is longer than maximum, truncating to '%s'", name, name_end, substitution);
 }
 
 void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_OUT_MAXLENGTH + 1])
@@ -232,7 +250,20 @@ void substitute_text(struct vars* v, char* text_in, char out[CONF_SUBSTITUTION_O
     //INFO("OUT: %s", out);
 }
 
-void fill_command(struct command* c, char* text)
+
+struct command_config
+{
+    char min;
+    char hour;
+    char dom;
+    char month;
+    char dow;
+    char command[CONF_COMMAND_MAXLENGHT + 1];
+
+    struct command_config* next;
+};
+
+void fill_command(struct command_config* c, char* text)
 {
     //DEBUG("TEXT: %s", text);
     regex_t reg;
@@ -291,9 +322,31 @@ void fill_command(struct command* c, char* text)
     //cout << c->command << endl;
 }
 
-command* read_file(const char* filename)
+vars* init_environment_variables()
 {
-    cout << CONF_COMMAND_REGEX << endl;
+    vars begin;
+    vars* var_end = &begin;
+    begin.next = NULL;
+
+    while (*environ != NULL)
+    {
+        //printf("%s\n", *environ);
+        var_end->next = (struct vars*)malloc(sizeof(vars));
+        var_end = var_end->next;
+        var_end->next = NULL;
+        fill_variable(var_end->name, var_end->substitution, *environ);
+         //obidva stringy maju rozne dlzky...
+        var_end->substitution[VAR_SUBSTITUTION_MAXLENGTH] = '\0';
+
+        ++environ;
+    }
+    exit(0);
+
+    return begin.next;
+}
+
+struct com_pair read_file(const char* filename)
+{
     FILE* input;
     char* line = NULL;
     size_t len = 0;
@@ -302,8 +355,8 @@ command* read_file(const char* filename)
     vars var_begin;
     vars *var_end = &var_begin;
     var_begin.next = NULL;
-    command com_begin;
-    command* com_end = &com_begin;
+    command_config com_begin;
+    command_config* com_end = &com_begin;
     com_begin.next = NULL;
     
     input = fopen(filename, "r");
@@ -313,6 +366,7 @@ command* read_file(const char* filename)
         exit(1);
     }
 
+    init_environment_variables();
     while ((read_length = getline(&line, &len, input)) != -1)
     {
         // odstrani \n z konca
@@ -332,7 +386,7 @@ command* read_file(const char* filename)
                 INFO("VAR_AFTER_SUBSTITUTION: %s = %s", var_end->name, var_end->substitution);
                 break;
             case LINE_COMMAND:
-                com_end->next = (struct command*)malloc(sizeof(command));
+                com_end->next = (struct command_config*)malloc(sizeof(command_config));
                 com_end = com_end->next;
                 com_end->next = NULL;
                 substitute_text(var_begin.next, line, substitued);
@@ -348,37 +402,118 @@ command* read_file(const char* filename)
     }
     free(line);
     fclose(input);
-/*
-    INFO("VARIABLES: ");
+
     var_end = var_begin.next;
-    while (var_end)
+    while(var_end)
     {
-        INFO("vars: %s = %s", var_end->name, var_end->substitution);
-        var_end = var_end->next;
+        var_begin.next = var_end->next;
+        free(var_end);
+        var_end = var_begin.next;
     }
-    INFO("COMMANDS");
-    com_end = com_begin.next;
-    while (com_end)
-    {
-        stringstream s;
-        s << (int)com_end->min << " "
-            << (int)com_end->hour << " "
-            << (int)com_end->dom << " "
-            << (int)com_end->month << " "
-            << (int)com_end->dow << " "
-            << com_end->command;
-        INFO(s.str());
-        com_end = com_end->next;
-    }
-*/
-    return com_begin.next;
+
+    return transform_commands(com_begin.next);
 }
 
 
+int command_sort_comp_function(const void* c1, const void* c2)
+{
+    return ((struct command*)c1)->seconds - ((struct command*)c2)->seconds;
+}
 
+time_t tm_to_time(struct tm* datetime, struct command_config* com)
+{
+    datetime->tm_sec = 0;
+    //mins:
+    if (com->min != -1)
+        datetime->tm_min = com->min;
+    //hours:
+    if (com->hour != -1)
+        datetime->tm_hour = com->hour - 1;
+    //day_of_month
+    if (com->dom != -1)
+    {
+        // mal by som zmenit den na com->dom
+        // ale este ked dnesny_dow == com->dow, mam spusit command dnes..
+        // resp. naplanuj to na taky den, ktory je najblizsie dnesku..
+        int distance;
+        int comdow = com->dow % 7;
+        distance = (comdow >= datetime->tm_wday) ?
+            comdow - datetime->tm_wday : 7 - datetime->tm_wday + comdow;
 
+        if (distance > com->dom - datetime->tm_mday)
+            datetime->tm_mday = com->dom;
+        else
+            datetime->tm_mday += distance;
+    }
+    //month
+    if (com->month != -1)
+        datetime->tm_mon = com->month - 1;
 
+    /*
+    //date_of_week
+    if (com->dow != -1)
+        datetime->tm_wday = com->dow;
+    */
 
+    return mktime(datetime);
+}
+    
+struct com_pair transform_commands(struct command_config* conf)
+{
+    if (conf == NULL)
+        return {0, NULL};
 
+    time_t actual_secs;
+    struct tm* datetime;
+    struct command* c;
+    struct command_config* it = NULL;
+    int com_count = 0;
+    int i = 0;
+    const char* time_format = "%H:%M:%S\t%d-%m-%y";
+    char buf[32];
+    struct com_pair out;
+
+    it = conf;
+    while (it)
+    {
+        ++com_count;
+        it = it->next;
+    }
+
+    time(&actual_secs);
+    datetime = localtime(&actual_secs);
+
+    strftime(buf, 32, time_format, datetime);
+    printf("DNES: %s\n", buf);
+
+    c = (struct command*)malloc(sizeof(struct command) * com_count);
+    bzero(c, com_count);
+
+    i = 0;
+    it = conf;
+    while(it)
+    {
+        datetime = localtime(&actual_secs);
+        c[i].seconds = tm_to_time(datetime, it);
+        strcpy(c[i].command_exec, conf->command);
+
+        strftime(buf, 32, time_format, datetime);
+        printf("date: %s\n", buf);
+
+        ++i;
+        it = it->next;
+    }
+
+    qsort(c, com_count, sizeof(struct command), command_sort_comp_function);
+
+    for (i = 0; i < com_count; ++i)
+    {
+        cout << c[i].seconds << "\t" << asctime(localtime(&c[i].seconds));
+    }
+    out.commands = c;
+    out.count = com_count;
+
+    return out;
+}
 
 

@@ -1,3 +1,26 @@
+/*
+ * File: logger.hpp
+ *
+ * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
+ */
+
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
 #include <log4cpp/Category.hh>
 extern log4cpp::Category& logger;
@@ -7,37 +30,5 @@ extern log4cpp::Category& logger;
 #define ERROR(...)  logger.info(__VA_ARGS__)
 #define LOG(...)    logger.notice(__VA_ARGS__)
 
+#endif /* !LOGGER_HPP */
 
-
-
-
-#ifdef LOGGER_COMPILE
-
-#include <log4cpp/Appender.hh>
-#include <log4cpp/FileAppender.hh>
-#include <log4cpp/OstreamAppender.hh>
-#include <log4cpp/Layout.hh>
-#include <log4cpp/BasicLayout.hh>
-#include <log4cpp/Priority.hh>
-#include <log4cpp/PatternLayout.hh>
-
-
-log4cpp::Category& init_logger()
-{
-    log4cpp::Category& logger = log4cpp::Category::getRoot();
-    logger.setPriority(log4cpp::Priority::DEBUG);
-
-    log4cpp::Appender *console_appender = new log4cpp::OstreamAppender(
-            "console", &std::cout);
-    log4cpp::PatternLayout* layout = new log4cpp::PatternLayout();
-    layout->setConversionPattern("%d{%H:%M:%S:%m} [%p] %m%n");
-    console_appender->setLayout(layout);
-
-    logger.addAppender(console_appender);
-
-    return logger;
-}
-
-log4cpp::Category& logger = init_logger();
-
-#endif // LOGGER_COMPILE

@@ -22,9 +22,6 @@
 #include <stdio.h>
 #include "conf.h"
 #include "crontab.h"
-
-
-#define LOGGER_COMPILE
 #include "logger.hpp"
 
 int main()
@@ -34,7 +31,9 @@ int main()
     //check_line("* * * * *  ");
     //check_line("1 2 3 4 5  ahoj");
     //read_file("crontab");
-    sort_commands(read_file("crontab"));
+    //sort_commands(read_file("crontab"));
+    //
+    read_file("crontab");
     return 0;
 }
 

@@ -15,8 +15,8 @@ BUILDDIR		= build
 TARGET			= program
 SOURCES			= $(shell find ./ -name "*.c" | sed 's@\./@@g')
 HEADERS			= $(shell find ./ -name "*.h" -or -name "*.hpp" | sed 's@\./@@g')
-OBJECTS			= $(SOURCES:%.c=%.o)
-MAKEFILES		= $(SOURCES:%.c=%.mk)
+OBJECTS			= $(SOURCES:%.c=%.o) logger.o
+MAKEFILES		= $(OBJECTS:%.o=%.mk)
 
 MAKEDEPENDENCY	= $(CC) -MM -E 
 
@@ -33,9 +33,10 @@ run: build
 build: $(BUILDDIR)/$(TARGET)
 
 
-$(BUILDDIR)/$(TARGET): $(SOURCES) $(HEADERS) $(addprefix $(BUILDDIR)/,$(MAKEFILES)) $(BUILDDIR)/Makefile
+$(BUILDDIR)/$(TARGET): $(BUILDDIR)/Makefile
 
-$(BUILDDIR)/Makefile: $(SOURCES) $(HEADERS) $(addprefix $(BUILDDIR)/,$(MAKEFILES)) Makefile
+# je to .PHONY target, vykona sa vzdy:
+$(BUILDDIR)/Makefile: $(SOURCES) $(HEADERS) $(addprefix $(BUILDDIR)/,$(MAKEFILES))
 	@rm -f $@
 	@echo -e\
 			\\nbuild : $(TARGET) \\n \
@@ -51,8 +52,15 @@ $(BUILDDIR)/Makefile: $(SOURCES) $(HEADERS) $(addprefix $(BUILDDIR)/,$(MAKEFILES
 					>> $@
 	@make --directory=$(BUILDDIR) -f Makefile
 
-
 $(BUILDDIR)/%.mk: %.c
+	@mkdir -p $(BUILDDIR)
+	@rm -f $@
+	@$(MAKEDEPENDENCY) $(CFLAGS) $^ | sed 's@\([^. :]*.\.\([hc]pp\|[hc]\)\)@../\1@g' \
+					>> $@
+	@echo '	$(CC) $(CFLAGS) $$< -o $$@ ' \
+					>> $@
+
+$(BUILDDIR)/%.mk: %.cpp
 	@mkdir -p $(BUILDDIR)
 	@rm -f $@
 	@$(MAKEDEPENDENCY) $(CFLAGS) $^ | sed 's@\([^. :]*.\.\([hc]pp\|[hc]\)\)@../\1@g' \

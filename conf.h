@@ -24,6 +24,7 @@
 
 #include "logger.hpp"
 #include <err.h>
+#include <time.h>
 
 #define VAR_NAME_MAXLENGTH 10
 #define VAR_SUBSTITUTION_MAXLENGTH 32
@@ -41,26 +42,29 @@ struct variable
 
 struct command
 {
-    char min;
-    char hour;
-    char dom;
-    char month;
-    char dow;
-    char command[CONF_COMMAND_MAXLENGHT + 1];
-
-    struct command* next;
+    time_t seconds;
+    char command_exec[CONF_COMMAND_MAXLENGHT + 1];
 };
+
+struct com_pair
+{
+    int count;
+    struct command* commands;
+};
+
 
 #define LINE_IGNORE			1
 #define LINE_VARIABLE		2
 #define LINE_COMMAND		3
 #define LINE_BAD			4
 
-command* read_file(const char* filename);
+struct com_pair read_file(const char* filename);
 
 int check_line(const char* line);
 
 void substitute_line(const char* line, struct variable* vars);
+
+struct com_pair transform_commands(struct command_config* c);
 
 
 

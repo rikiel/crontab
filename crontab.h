@@ -33,7 +33,7 @@ void run_command(const char* command);
 
 void schedule_cron(time_t t);
 
-void sort_commands(struct command* c);
+void run_cron(const char* configfile);
 
 
 
