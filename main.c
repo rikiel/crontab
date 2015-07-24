@@ -28,38 +28,37 @@
 #include "logger.hpp"
 #include "utils.h"
 
-#define CRONTAB_CONFIG      "crontab.conf"
+#define	CRONTAB_CONFIG	"crontab.conf"
 
-char* name = NULL;
+char *name = NULL;
 
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
-    int opts;
+	int opts;
 
-    name = basename(argv[0]);
-    opts = handle_args(argc, argv);
+	name = basename(argv[0]);
+	opts = handle_args(argc, argv);
 
-    argc -= opts;
-    argv += opts;
-    if (argc != 1)
-    {
-        ERR("too few/many parameters");
-        usage();
-        exit(1);
-    }
-    else
-        run_cron(*argv);
+	argc -= opts;
+	argv += opts;
+	if (argc != 1) {
+		ERR("too few/many parameters");
+		usage();
+		exit(1);
+	}
+	else
+		run_cron(*argv);
 
-    return 0;
+	return (0);
 }
 
-void usage()
-{ 
-    INFO(
-            "usage()\n"
-            "\t%s [-h | --help]\n"
-            "\t%s [-d | --debug] [-l |--log-to=filename] <filename>",
-            name, name);
+void
+usage()
+{
+	INFO(
+		"usage()\n"
+		"\t%s [-h | --help]\n"
+		"\t%s [-d | --debug] [-l |--log-to=filename] <filename>",
+		name, name);
 }
-
-

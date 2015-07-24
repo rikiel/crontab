@@ -20,7 +20,7 @@
  */
 
 #ifndef LOGGER_HPP
-#define LOGGER_HPP
+#define	LOGGER_HPP
 
 
 #ifdef __cplusplus
@@ -33,15 +33,15 @@ extern "C"
 #endif
 
 // C wrappers:
-void log_to_file(const char* filename);
+void log_to_file(const char *filename);
 
-void log_debug(const char* str, ...);
-void log_info(const char* str, ...);
-void log_warn(const char* str, ...);
-void log_error(const char* str, ...);
-void log_priority(const char* priority);
+void log_debug(const char *str, ...);
+void log_info(const char *str, ...);
+void log_warn(const char *str, ...);
+void log_error(const char *str, ...);
+void log_priority(const char *priority);
 
-void log_append(const char* str);
+void log_append(const char *str);
 void log_append_i(int i);
 void log_flush();
 
@@ -50,15 +50,15 @@ void log_flush();
 #endif
 
 
-#define DEBUG(...)  log_debug   (__VA_ARGS__)
-#define INFO(...)   log_info    (__VA_ARGS__)
-#define WARN(...)   log_warn    (__VA_ARGS__)
-#define ERR(...)    log_error   (__VA_ARGS__)
+#define	DEBUG(...)	log_debug(__VA_ARGS__)
+#define	INFO(...)	log_info(__VA_ARGS__)
+#define	WARN(...)	log_warn(__VA_ARGS__)
+#define	ERR(...)	log_error(__VA_ARGS__)
 
-#define SET_LOGGER_PRIORITY(PRIORITY) log_priority(#PRIORITY);
+#define	SET_LOGGER_PRIORITY(PRIORITY) \
+			log_priority(#PRIORITY);
 
-#define APP_DEBUG_FNAME \
-    DEBUG("BEGIN_FUNCTION: %s()", __PRETTY_FUNCTION__)
+#define	APP_DEBUG_FNAME \
+			DEBUG("BEGIN_FUNCTION: %s()", __PRETTY_FUNCTION__)
 
 #endif /* !LOGGER_HPP */
-

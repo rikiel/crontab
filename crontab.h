@@ -20,24 +20,24 @@
  */
 
 #ifndef CRONTAB_H
-#define CRONTAB_H
+#define	CRONTAB_H
 
 struct list;
 
 /*
  * runs cron daemon with config
  */
-void run_cron(const char* config_file);
+void run_cron(const char *config_file);
 
 /*
  * run all commands that needs to be executed in this minute
  */
-void run_commands(const struct list* cmd);
+void run_commands(const struct list *cmd);
 
 /*
  * run command: "bash -c $command"
  */
-void run_command(const char* command);
+void run_command(const char *command);
 
 /*
  * calls waitpid() on all fork-ed processes
@@ -45,4 +45,3 @@ void run_command(const char* command);
 void wait_children();
 
 #endif /* !CRONTAB_H */
-

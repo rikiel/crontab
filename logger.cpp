@@ -19,7 +19,7 @@
  * USA.
  */
 
-# ifdef __cplusplus
+#ifdef __cplusplus
 
 #include <log4cpp/Appender.hh>
 #include <log4cpp/FileAppender.hh>
@@ -30,112 +30,113 @@
 #include <log4cpp/PatternLayout.hh>
 #include "logger.hpp"
 
-#define LOG_PATTERN     "%d{%H:%M:%S:%l} %u:\t[%p] %m%n"
+#define	LOG_PATTERN	"%d{%H:%M:%S:%l} %u:\t[%p] %m%n"
 
-log4cpp::Category& init_logger()
+log4cpp::Category &
+init_logger()
 {
-    log4cpp::Appender* console_appender;
-    log4cpp::Appender* file_appender;
-    log4cpp::PatternLayout* console_layout;
-    log4cpp::PatternLayout* file_layout;
-    std::string logfile = "build/program.log";
+	log4cpp::Appender *console_appender;
+	log4cpp::Appender *file_appender;
+	log4cpp::PatternLayout *console_layout;
+	log4cpp::PatternLayout *file_layout;
+	std::string logfile = "build/program.log";
 
-    console_appender = new log4cpp::OstreamAppender("console", &std::cout);
-    file_appender = new log4cpp::FileAppender("default", logfile, false);   // append=false=>truncate
+	console_appender = new log4cpp::OstreamAppender("console", &std::cout);
+	file_appender = new log4cpp::FileAppender("default", logfile, false);
+						// ^^ append=false=>truncate
 
-    file_layout = new log4cpp::PatternLayout();
-    console_layout = new log4cpp::PatternLayout();
-    console_layout->setConversionPattern(LOG_PATTERN);
-    file_layout->setConversionPattern(LOG_PATTERN);
+	file_layout = new log4cpp::PatternLayout();
+	console_layout = new log4cpp::PatternLayout();
+	console_layout->setConversionPattern(LOG_PATTERN);
+	file_layout->setConversionPattern(LOG_PATTERN);
 
-    file_appender->setLayout(file_layout);
-    console_appender->setLayout(console_layout);
+	file_appender->setLayout(file_layout);
+	console_appender->setLayout(console_layout);
 
-    log4cpp::Category& log = log4cpp::Category::getRoot();
-    log.setPriority(log4cpp::Priority::DEBUG);
+	log4cpp::Category& log = log4cpp::Category::getRoot();
+	log.setPriority(log4cpp::Priority::DEBUG);
 
-    log.addAppender(console_appender);
-    log.addAppender(file_appender);
+	log.addAppender(console_appender);
+	log.addAppender(file_appender);
 
-    return log;
+	return (log);
 }
 
-log4cpp::Category& logger = init_logger();
+log4cpp::Category &logger = init_logger();
 std::string appender;
 
 extern "C"
 {
-    void log_to_file(const char* filename)
-    {
-        //APP_DEBUG_FNAME;
-        DEBUG("add log file '%s'", filename);
+	void log_to_file(const char *filename)
+	{
+		// APP_DEBUG_FNAME;
+		DEBUG("add log file '%s'", filename);
 
-        log4cpp::Appender* appender;
-        log4cpp::PatternLayout* layout;
+		log4cpp::Appender *appender;
+		log4cpp::PatternLayout *layout;
 
-        layout = new log4cpp::PatternLayout();
-        layout->setConversionPattern(LOG_PATTERN);
+		layout = new log4cpp::PatternLayout();
+		layout->setConversionPattern(LOG_PATTERN);
 
-        appender = new log4cpp::FileAppender("default", filename, true);
-        appender->setLayout(layout);
+		appender = new log4cpp::FileAppender("default", filename, true);
+		appender->setLayout(layout);
 
-        logger.addAppender(appender);
-    }
+		logger.addAppender(appender);
+	}
 
-#define MY_LOG(PRIORITY) \
-    { \
-        va_list va; \
-        va_start(va, str); \
-        logger.logva(log4cpp::Priority::PRIORITY, str, va); \
-        va_end(va); \
-    }
+#define	MY_LOG(PRIORITY) \
+	{ \
+		va_list va; \
+		va_start(va, str); \
+		logger.logva(log4cpp::Priority::PRIORITY, str, va); \
+		va_end(va); \
+	}
 
-    void log_debug  (const char* str, ...)
-    {
-        MY_LOG(DEBUG);
-    }
-    void log_info   (const char* str, ...)
-    {
-        MY_LOG(INFO);
-    }
-    void log_warn   (const char* str, ...)
-    {
-        MY_LOG(WARN);
-    }
-    void log_error  (const char* str, ...)
-    {
-        MY_LOG(ERROR);
-    }
+	void log_debug  (const char *str, ...)
+	{
+		MY_LOG(DEBUG);
+	}
+	void log_info   (const char *str, ...)
+	{
+		MY_LOG(INFO);
+	}
+	void log_warn   (const char *str, ...)
+	{
+		MY_LOG(WARN);
+	}
+	void log_error  (const char *str, ...)
+	{
+		MY_LOG(ERROR);
+	}
 
-    void log_priority(const char* priority)
-    {
-#define SET_PRIORITY(P) logger.setPriority(log4cpp::Priority::P)
-        std::string p = priority;
+	void log_priority(const char *priority)
+	{
+#define	SET_PRIORITY(P)	logger.setPriority(log4cpp::Priority::P)
+		std::string p = priority;
 
-        if (p == "DEBUG")
-            SET_PRIORITY(DEBUG);
-        else if (p == "INFO")
-            SET_PRIORITY(INFO);
-        else if (p == "WARN")
-            SET_PRIORITY(WARN);
-    }
+		if (p == "DEBUG")
+			SET_PRIORITY(DEBUG);
+		else if (p == "INFO")
+			SET_PRIORITY(INFO);
+		else if (p == "WARN")
+			SET_PRIORITY(WARN);
+	}
 
-    void log_append_i(int i)
-    {
-        std::stringstream str;
-        str << i;
-        appender += str.str();
-    }
-    void log_append(const char* str)
-    {
-        appender += str;
-    }
-    void log_flush()
-    {
-        INFO("%s", appender.c_str());
-        appender.clear();
-    }
+	void log_append_i(int i)
+	{
+		std::stringstream str;
+		str << i;
+		appender += str.str();
+	}
+	void log_append(const char *str)
+	{
+		appender += str;
+	}
+	void log_flush()
+	{
+		INFO("%s", appender.c_str());
+		appender.clear();
+	}
 }
 
 #endif
-

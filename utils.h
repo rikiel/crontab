@@ -20,7 +20,7 @@
  */
 
 #ifndef UTILS_H
-#define UTILS_H
+#define	UTILS_H
 
 #include "logger.hpp"
 #include <time.h>
@@ -31,26 +31,25 @@ struct variable;
 
 struct list
 {
-    void* item;
-    struct list* next;
+	void *item;
+	struct list *next;
 };
 
-void delete_list(struct list* l);
+void delete_list(struct list *l);
 
-void swap_ptr(void** p1, void** p2);
+void swap_ptr(void **p1, void **p2);
 
-const char* time_to_string(time_t t);
+const char * time_to_string(time_t t);
 
 /*
  * removes all blank-characters from beginning and end
  */
-void trim(char* str);
+void trim(char *str);
 
 void usage();
 /*
  * handle arguments from usage();
  */
-int handle_args(int argc, char** argv);
+int handle_args(int argc, char **argv);
 
 #endif /* !UTILS_H */
-

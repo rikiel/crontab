@@ -28,353 +28,356 @@
 #include "conf.h"
 #include "utils.h"
 
-#define min(n1, n2)             ((n1 < n2) ? n1 : n2)
+#define	min(n1, n2)		((n1 < n2) ? n1 : n2)
 
-#define __TOSTRING__(X)         #X
-#define __TOSTRING__2(X)        __TOSTRING__(X)
+#define	__TOSTRING__(X)		#X
+#define	__TOSTRING__2(X)	__TOSTRING__(X)
 
 // REGEXes for matching crontab config file:
 
 // commented/empty lines
-#define CONF_REGEX_IGNORE       "^[[:blank:]]*(#|$)"
+#define	CONF_REGEX_IGNORE	"^[[:blank:]]*(#|$)"
 // variable: name=..
 //  where `name` is 1..n characters long
-#define CONF_REGEX_VARIABLE     "([[:alnum:]]{1," \
-                                __TOSTRING__2(CONF_VAR_NAME_MAXLENGTH) \
-                                "})[[:blank:]]*="
+#define	CONF_REGEX_VARIABLE \
+				"([[:alnum:]]{1," \
+				__TOSTRING__2(CONF_VAR_NAME_MAXLENGTH) \
+				"})[[:blank:]]*="
 
 // digits or '*' and blank characters
-#define CONF_REGEX_COMMAND_MIN  "([*[:digit:]]|[1-5][0-9])[[:blank:]]+"
-#define CONF_REGEX_COMMAND_HOUR "([*[:digit:]]|1[0-9]|2[0-3])[[:blank:]]+"
-#define CONF_REGEX_COMMAND_DOM  "([*[:digit:]]|[12][0-9]|3[01])[[:blank:]]+"
-#define CONF_REGEX_COMMAND_MON  "([*[:digit:]]|1[0-2])[[:blank:]]+"
-#define CONF_REGEX_COMMAND_DOW  "([*[0-7])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_MIN	"([*[:digit:]]|[1-5][0-9])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_HOUR	"([*[:digit:]]|1[0-9]|2[0-3])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_DOM	"([*[:digit:]]|[12][0-9]|3[01])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_MON	"([*[:digit:]]|1[0-2])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_DOW	"([*[0-7])[[:blank:]]+"
 // more than one non-blank character
-#define CONF_REGEX_COMMAND_COM  ".*[^[:blank:]].*$"
+#define	CONF_REGEX_COMMAND_COM	".*[^[:blank:]].*$"
 
-#define CONF_REGEX_COMMAND      "[[:blank:]]*" \
-                                CONF_REGEX_COMMAND_MIN \
-                                CONF_REGEX_COMMAND_HOUR \
-                                CONF_REGEX_COMMAND_DOM \
-                                CONF_REGEX_COMMAND_MON \
-                                CONF_REGEX_COMMAND_DOW \
-                                CONF_REGEX_COMMAND_COM
+#define	CONF_REGEX_COMMAND \
+				"[[:blank:]]*" \
+				CONF_REGEX_COMMAND_MIN \
+				CONF_REGEX_COMMAND_HOUR \
+				CONF_REGEX_COMMAND_DOM \
+				CONF_REGEX_COMMAND_MON \
+				CONF_REGEX_COMMAND_DOW \
+				CONF_REGEX_COMMAND_COM
 
-void compile_regex(regex_t* reg, const char* text)
+void
+compile_regex(regex_t *reg, const char *text)
 {
-    //APP_DEBUG_FNAME;
+	// APP_DEBUG_FNAME;
 
-    if (regcomp(reg, text, REG_EXTENDED) != 0)
-    {
-        ERR("regcomp(%s)", text);
-        abort();
-    }
+	if (regcomp(reg, text, REG_EXTENDED) != 0) {
+		ERR("regcomp(%s)", text);
+		abort();
+	}
 }
 
-int match(const char* text, const char* regex_str)
+int
+match(const char *text, const char *regex_str)
 {
-    //APP_DEBUG_FNAME;
+	// APP_DEBUG_FNAME;
 
-    int out;
-    regex_t reg;
+	int out;
+	regex_t reg;
 
-    compile_regex(&reg, regex_str);
-    out = (regexec(&reg, text, 0, NULL, 0) == 0);
-    regfree(&reg);
+	compile_regex(&reg, regex_str);
+	out = (regexec(&reg, text, 0, NULL, 0) == 0);
+	regfree(&reg);
 
-    return out;
+	return (out);
 }
 
-int check_line(const char* line)
+int
+check_line(const char *line)
 {
-    //APP_DEBUG_FNAME;
+	// APP_DEBUG_FNAME;
 
-    if (match(line, CONF_REGEX_IGNORE))
-        return LINE_IGNORE;
-    if (match(line, CONF_REGEX_VARIABLE))
-        return LINE_VARIABLE;
-    if (match(line, CONF_REGEX_COMMAND))
-        return LINE_COMMAND;
+	if (match(line, CONF_REGEX_IGNORE))
+		return (LINE_IGNORE);
+	if (match(line, CONF_REGEX_VARIABLE))
+		return (LINE_VARIABLE);
+	if (match(line, CONF_REGEX_COMMAND))
+		return (LINE_COMMAND);
 
-    return LINE_BAD;
+	return (LINE_BAD);
 }
 
-struct command* transform(const struct command_config* c)
+struct command *
+transform(const struct command_config *c)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    struct command* cmd;
-    time_t actual_secs;
-    struct tm* datetime;
-    
-    cmd = malloc(sizeof(struct command));
-    time(&actual_secs);
-    datetime = localtime(&actual_secs);
+	struct command *cmd;
+	time_t actual_secs;
+	struct tm *datetime;
 
-    datetime->tm_sec = 0;
-    if (c->min != -1)
-        datetime->tm_min = c->min;
-    if (c->hour != -1)
-        datetime->tm_hour = c->hour;
-    if (c->month != -1)
-        datetime->tm_mon = c->month - 1;
-    if (c->dom != -1)
-    {
-        // if day_of_week != actual_day_of_week, change it to day_of_month
-        if (c->dow != datetime->tm_wday)
-            datetime->tm_mday = c->dom;
-    }
+	cmd = malloc(sizeof (struct command));
+	time(&actual_secs);
+	datetime = localtime(&actual_secs);
 
-    strcpy(cmd->cmd, c->command);
-    cmd->seconds = mktime(datetime);
+	datetime->tm_sec = 0;
+	if (c->min != -1)
+		datetime->tm_min = c->min;
+	if (c->hour != -1)
+		datetime->tm_hour = c->hour;
+	if (c->month != -1)
+		datetime->tm_mon = c->month - 1;
+	if (c->dom != -1) {
+		// if day_of_week != actual_day_of_week,
+		// change it to day_of_month
+		if (c->dow != datetime->tm_wday)
+			datetime->tm_mday = c->dom;
+	}
 
-    return cmd;
+	strcpy(cmd->cmd, c->command);
+	cmd->seconds = mktime(datetime);
+
+	return (cmd);
 }
 
-size_t run_r(const char* regex_str, char* text)
+size_t
+run_r(const char *regex_str, char *text)
 {
-    //APP_DEBUG_FNAME;
-    assert(match(text, regex_str));
+	// APP_DEBUG_FNAME;
+	assert(match(text, regex_str));
 
-    regex_t reg;
-    regmatch_t match;
+	regex_t reg;
+	regmatch_t match;
 
-    compile_regex(&reg, regex_str);
-    // args: regexec(REGEXP, TEXT, MATCH_ARRAY_SIZE, MATCH_ARRAY, FLAGS)
-    regexec(&reg, text, 1, &match, 0);
-    text[match.rm_eo - 1] = '\0';
-    regfree(&reg);
-    
-    return match.rm_eo;
+	compile_regex(&reg, regex_str);
+	// args: regexec(REGEXP, TEXT, MATCH_ARRAY_SIZE, MATCH_ARRAY, FLAGS)
+	regexec(&reg, text, 1, &match, 0);
+	text[match.rm_eo - 1] = '\0';
+	regfree(&reg);
+
+	return (match.rm_eo);
 }
 
-struct command* create_cmd(char* text, struct list* vars)
+struct command *
+create_cmd(char *text, struct list *vars)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    assert(check_line(text) == LINE_COMMAND);
+	assert(check_line(text) == LINE_COMMAND);
 
-    struct command* cmd;
-    struct command_config c;
-    size_t n;
+	struct command *cmd;
+	struct command_config c;
+	size_t n;
 
-#define asterisk (strcmp(text, "*") == 0) ? -1 : strtol(text, NULL, 10)
-    // ^^ preslo to matchovanim s regexpom, takze ziadna chyba nastat nema.
+#define	asterisk (strcmp(text, "*") == 0) ? -1 : strtol(text, NULL, 10)
+	// ^^ preslo to matchovanim s regexpom, takze ziadna chyba nastat nema.
 
-    n = run_r(CONF_REGEX_COMMAND_MIN, text);
-    c.min = asterisk;
-    text += n;
-    n = run_r(CONF_REGEX_COMMAND_HOUR, text);
-    c.hour = asterisk;
-    text += n;
-    n = run_r(CONF_REGEX_COMMAND_DOM, text);
-    c.dom = asterisk;
-    text += n;
-    n = run_r(CONF_REGEX_COMMAND_MON, text);
-    c.month = asterisk;
-    text += n;
-    n = run_r(CONF_REGEX_COMMAND_DOW, text);
-    c.dow = asterisk;
-    text += n;
+	n = run_r(CONF_REGEX_COMMAND_MIN, text);
+	c.min = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_HOUR, text);
+	c.hour = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_DOM, text);
+	c.dom = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_MON, text);
+	c.month = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_DOW, text);
+	c.dow = asterisk;
+	text += n;
 
-    assert(strlen(text) < CONF_COMMAND_MAXLENGTH);
-    strcpy(c.command, text);
+	assert(strlen(text) < CONF_COMMAND_MAXLENGTH);
+	strcpy(c.command, text);
 
-    cmd = transform(&c);
-    substitute(cmd->cmd, vars, cmd->cmd);
+	cmd = transform(&c);
+	substitute(cmd->cmd, vars, cmd->cmd);
 
-    return cmd;
+	return (cmd);
 }
 
-struct variable* create_var(char* text, struct list* vars)
+struct variable *
+create_var(char *text, struct list *vars)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    assert(check_line(text) == LINE_VARIABLE);
+	assert(check_line(text) == LINE_VARIABLE);
 
-    size_t n;
-    struct variable* var;
+	size_t n;
+	struct variable *var;
 
-    var = malloc(sizeof(struct variable));
-    n = run_r(CONF_REGEX_VARIABLE, text);
-    trim(text);
-    assert(strlen(text) < CONF_VAR_NAME_MAXLENGTH);
-    strcpy(var->name, text);
-    text += n;
-    trim(text);
-    assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
-    strcpy(var->substitution, text);
+	var = malloc(sizeof (struct variable));
+	n = run_r(CONF_REGEX_VARIABLE, text);
+	trim(text);
+	assert(strlen(text) < CONF_VAR_NAME_MAXLENGTH);
+	strcpy(var->name, text);
+	text += n;
+	trim(text);
+	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
+	strcpy(var->substitution, text);
 
-    substitute(var->substitution, vars, var->substitution);
+	substitute(var->substitution, vars, var->substitution);
 
-    return var;
+	return (var);
 }
 
-void substitute(const char* text, struct list* vars, char* substitued)
+void
+substitute(const char *text, struct list *vars, char *substitued)
 {
-    APP_DEBUG_FNAME;
-    DEBUG("substitute('%s')", text);
-    assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
+	APP_DEBUG_FNAME;
+	DEBUG("substitute('%s')", text);
+	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
 
-    regex_t reg;
-    regmatch_t match;
-    char regstr[CONF_VAR_NAME_MAXLENGTH + 3] = {'\\', '$'};
-    // ^^ bude tu regexp '\$VAR'
-    struct variable* v;
-    size_t n;
-    size_t maxlength;
-    struct
-    {
-        char* buff;
-        char* ptr;
-    } read, write;
+	regex_t reg;
+	regmatch_t match;
+	char regstr[CONF_VAR_NAME_MAXLENGTH + 3] = {'\\', '$'};
+	// ^^ bude tu regexp '\$VAR'
+	struct variable *v;
+	size_t n;
+	size_t maxlength;
+	struct {
+		char *buff;
+		char *ptr;
+	} read, write;
 
-    read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof(char));
-    write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof(char));
+	read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
+	write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 
-    strcpy(read.buff, text);
+	strcpy(read.buff, text);
 
-    while (vars)
-    {
-        v = (struct variable*)vars->item;
-        maxlength = CONF_SUBSTITUTION_MAXLENGTH;
-        read.ptr = read.buff;
-        write.ptr = write.buff;
-        strcpy(regstr + 2, v->name);
-        compile_regex(&reg, regstr);
-        DEBUG("regstr '%s'", regstr);
+	while (vars) {
+		v = (struct variable *)vars->item;
+		maxlength = CONF_SUBSTITUTION_MAXLENGTH;
+		read.ptr = read.buff;
+		write.ptr = write.buff;
+		strcpy(regstr + 2, v->name);
+		compile_regex(&reg, regstr);
+		DEBUG("regstr '%s'", regstr);
 
-        while(regexec(&reg, read.ptr, 1, &match, 0) == 0)
-        {
-            // copy string before "$VAR"
-            n = min(match.rm_so, maxlength);
-            strncpy(write.ptr, read.ptr, n);
-            write.ptr[n] = '\0';
-            write.ptr += n;
-            read.ptr += match.rm_eo;    // go after $VAR
-            maxlength -= n;
+		while (regexec(&reg, read.ptr, 1, &match, 0) == 0) {
+			// copy string before "$VAR"
+			n = min(match.rm_so, maxlength);
+			strncpy(write.ptr, read.ptr, n);
+			write.ptr[n] = '\0';
+			write.ptr += n;
+			read.ptr += match.rm_eo;	// go after $VAR
+			maxlength -= n;
 
-            // copy $VAR substitution
-            n = min(strlen(v->substitution), maxlength);
-            assert(n < maxlength);
-            strncpy(write.ptr, v->substitution, n);
-            write.ptr[n] = '\0';
-            write.ptr += n;
-            maxlength -= n;
-        }
+			// copy $VAR substitution
+			n = min(strlen(v->substitution), maxlength);
+			assert(n < maxlength);
+			strncpy(write.ptr, v->substitution, n);
+			write.ptr[n] = '\0';
+			write.ptr += n;
+			maxlength -= n;
+		}
 
-        n = min(strlen(read.ptr), maxlength);
-        assert(n < maxlength);
-        strncpy(write.ptr, read.ptr, n);
-        write.ptr[n] = '\0';
+		n = min(strlen(read.ptr), maxlength);
+		assert(n < maxlength);
+		strncpy(write.ptr, read.ptr, n);
+		write.ptr[n] = '\0';
 
+		DEBUG("in '%s', out '%s'", read.buff, write.buff);
+		swap_ptr((void**)&write.buff, (void**)&read.buff);
 
-        DEBUG("in '%s', out '%s'", read.buff, write.buff);
-        swap_ptr((void**)&write.buff, (void**)&read.buff);
+		vars = vars->next;
+	}
+	strcpy(substitued, read.buff);
 
-        vars = vars->next;
-    }
-    strcpy(substitued, read.buff);
-
-    free(read.buff);
-    free(write.buff);
+	free(read.buff);
+	free(write.buff);
 }
 
-int read_config(const char* filename, struct list** commands)
+int
+read_config(const char *filename, struct list **commands)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    struct list* beg_cmd;
-    struct list* beg_var;
-    struct list* l;
-    FILE* input;
-    char* line;
-    size_t len;
-    ssize_t read_length;
+	struct list *beg_cmd;
+	struct list *beg_var;
+	struct list *l;
+	FILE *input;
+	char *line;
+	size_t len;
+	ssize_t read_length;
 
-    beg_cmd = NULL;
-    beg_var = NULL;
-    *commands = NULL;
+	beg_cmd = NULL;
+	beg_var = NULL;
+	*commands = NULL;
 
-    len = 128;
-    line = malloc(len);
+	len = 128;
+	line = malloc(len);
 
-    input = fopen(filename, "r");
-    if (input == NULL)
-    {
-        ERR("fopen(%s)", filename);
-        return -1;
-    }
+	input = fopen(filename, "r");
+	if (input == NULL) {
+		ERR("fopen(%s)", filename);
+		return (-1);
+	}
 
-    while ((read_length = getline(&line, &len, input)) != -1)
-    {
-        // odstrani \n z konca
-        if (read_length > 0)
-            line[read_length - 1] = '\0';
-        switch (check_line(line))
-        {
-            case LINE_VARIABLE:
-                l = (struct list*) malloc(sizeof(struct list));
-                l->next = beg_var;
-                l->item = create_var(line, beg_var);
-                beg_var = l;
-                break;
-            case LINE_COMMAND:
-                l = (struct list*) malloc(sizeof(struct list));
-                l->next = beg_cmd;
-                l->item = create_cmd(line, beg_var);
-                beg_cmd = l;
-                break;
-            case LINE_BAD:
-                WARN("bad line structure");
-            case LINE_IGNORE:
-                DEBUG("ignoring line '%s'", line);
-                break;
-        }
-        l = NULL;
-    }
+	while ((read_length = getline(&line, &len, input)) != -1) {
+		// odstrani \n z konca
+		if (read_length > 0)
+			line[read_length - 1] = '\0';
+		switch (check_line(line)) {
+			case LINE_VARIABLE:
+				l = (struct list *)
+					malloc(sizeof (struct list));
+				l->next = beg_var;
+				l->item = create_var(line, beg_var);
+				beg_var = l;
+				break;
+			case LINE_COMMAND:
+				l = (struct list *)
+					malloc(sizeof (struct list));
+				l->next = beg_cmd;
+				l->item = create_cmd(line, beg_var);
+				beg_cmd = l;
+				break;
+			case LINE_BAD:
+				WARN("bad line structure");
+			case LINE_IGNORE:
+				DEBUG("ignoring line '%s'", line);
+				break;
+		}
+		l = NULL;
+	}
 
-    print_cfg(beg_var, beg_cmd);
+	print_cfg(beg_var, beg_cmd);
 
-    fclose(input);
-    free(line);
-    delete_list(beg_var);
+	fclose(input);
+	free(line);
+	delete_list(beg_var);
 
-    *commands = beg_cmd;
-    return 0;
+	*commands = beg_cmd;
+	return (0);
 }
 
-void print_cfg(const struct list* variables, const struct list* commands)
+void
+print_cfg(const struct list *variables, const struct list *commands)
 {
-    APP_DEBUG_FNAME;
-    struct variable* v;
-    struct command* c;
+	APP_DEBUG_FNAME;
+	struct variable *v;
+	struct command *c;
 
-    log_append("CONFIG:\n");
-    log_append("*******CRON VARIABLES:*******\n");
-    while(variables)
-    {
-        v = variables->item;
+	log_append("CONFIG:\n");
+	log_append("*******CRON VARIABLES:*******\n");
+	while (variables) {
+		v = variables->item;
 
-        log_append(v->name);
-        log_append(" = ");
-        log_append(v->substitution);
-        log_append("\n");
+		log_append(v->name);
+		log_append(" = ");
+		log_append(v->substitution);
+		log_append("\n");
 
-        variables = variables->next;
-    }
-    log_append("*******CRON COMMANDS:*******\n");
-    while(commands)
-    {
-        c = commands->item;
+		variables = variables->next;
+	}
+	log_append("*******CRON COMMANDS:*******\n");
+	while (commands) {
+		c = commands->item;
 
-        log_append_i(c->seconds);
-        log_append("s, cmd: ");
-        log_append(c->cmd);
-        log_append("\n");
+		log_append_i(c->seconds);
+		log_append("s, cmd: ");
+		log_append(c->cmd);
+		log_append("\n");
 
-        commands = commands->next;
-    }
-    log_flush();
+		commands = commands->next;
+	}
+	log_flush();
 }
-

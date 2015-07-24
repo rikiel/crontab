@@ -20,11 +20,11 @@
  */
 
 
-#include <errno.h>      // errno
-#include <unistd.h>     // fork
-#include <string.h>     // strerror
-#include <stdlib.h>     // abort
-#include <assert.h>     // assert
+#include <errno.h>	  // errno
+#include <unistd.h>	 // fork
+#include <string.h>	 // strerror
+#include <stdlib.h>	 // abort
+#include <assert.h>	 // assert
 #include <sys/types.h>
 #include <sys/wait.h>   // waitpid
 
@@ -32,100 +32,100 @@
 #include "conf.h"
 #include "utils.h"
 
-#define CRON_SLEEP_TIME     60
-#define MAX_ERRORS          10
+#define	CRON_SLEEP_TIME	 60
+#define	MAX_ERRORS		  10
 
 size_t err = 0;
 
-void run_cron(const char* config_file)
+void
+run_cron(const char *config_file)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    size_t iterations = 0;
-    struct list* cfg = NULL;
+	size_t iterations = 0;
+	struct list *cfg = NULL;
 
-    INFO("cron_daemon: START");
+	INFO("cron_daemon: START");
 
-    while(1)
-    {
-        ++iterations;
-        DEBUG("cron iteration #%lu", iterations);
+	while (1) {
+		++iterations;
+		DEBUG("cron iteration #%lu", iterations);
 
-        if (read_config(config_file, &cfg))
-        {
-            WARN("read_config('%s') failed", config_file);
-            if (++err > MAX_ERRORS)
-            {
-                ERR("MAX errors reached, aborting");
-                abort();
-            }
-        }
+		if (read_config(config_file, &cfg)) {
+			WARN("read_config('%s') failed", config_file);
+			if (++err > MAX_ERRORS) {
+				ERR("MAX errors reached, aborting");
+				abort();
+			}
+		}
 
-        run_commands(cfg);
-        delete_list(cfg);
+		run_commands(cfg);
+		delete_list(cfg);
 
-        wait_children();
+		wait_children();
 
-        DEBUG("sleeping");
-        sleep(CRON_SLEEP_TIME);
-    }
+		DEBUG("sleeping");
+		sleep(CRON_SLEEP_TIME);
+	}
 }
 
-void run_command(const char* command)
+void
+run_command(const char *command)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    int i;
-    
-    i = fork();
-    switch(i)
-    {
-        case -1:
-            ERR("fork: '%s'", strerror(errno));
-            ++err;
-            break;
-        case 0: // child
-            INFO("fork ok, running command: /bin/bash -c '%s'", command);
-            execl("/bin/bash", "bash", "-c", command, NULL);
-            ERR("exec command failed with error '%s', aborting", strerror(errno));
-            abort();
-            break;
-        default:
-            INFO("process with pid %i created, run command '%s'", i, command);
-            break;
-    }
+	int i;
+
+	i = fork();
+	switch (i) {
+		case -1:
+			ERR("fork: '%s'", strerror(errno));
+			++err;
+			break;
+		case 0: // child
+			INFO("fork ok, running command: /bin/bash -c '%s'",
+					command);
+			execl("/bin/bash", "bash", "-c", command, NULL);
+			ERR("exec command failed with error '%s', aborting",
+				strerror(errno));
+			abort();
+			break;
+		default:
+			INFO("process with pid %i created, run command '%s'",
+					i, command);
+			break;
+	}
 }
 
-void run_commands(const struct list* cmd)
+void
+run_commands(const struct list *cmd)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    time_t now;
-    struct command* c;
+	time_t now;
+	struct command *c;
 
-    time(&now);
+	time(&now);
 
-    while(cmd)
-    {
-        c = (struct command*) cmd->item;
+	while (cmd) {
+		c = (struct command *)cmd->item;
 
-        // vv should be run in this minute
-        if (abs(now - c->seconds) < CRON_SLEEP_TIME)
-            run_command(c->cmd);
-        cmd = cmd->next;
-    }
+		// vv should be run in this minute
+		if (abs(now - c->seconds) < CRON_SLEEP_TIME)
+			run_command(c->cmd);
+		cmd = cmd->next;
+	}
 }
 
-void wait_children()
+void
+wait_children()
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    int status;
-    pid_t pid;
-    while((pid = waitpid(-1, &status, WNOHANG)) > 0)
-    {
-        assert(WIFEXITED(status));
-        INFO("process %li exited with status %li", (int)pid, status);
-    }
+	int status;
+	pid_t pid;
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		assert(WIFEXITED(status));
+		INFO("process %li exited with status %li", (int)pid, status);
+	}
 }
-
