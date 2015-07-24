@@ -1,5 +1,5 @@
 /*
- * File: main.c
+ * File: utils.h
  *
  * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
  *
@@ -19,47 +19,38 @@
  * USA.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <libgen.h>
-#include "conf.h"
-#include "crontab.h"
+#ifndef UTILS_H
+#define UTILS_H
+
 #include "logger.hpp"
-#include "utils.h"
+#include <time.h>
 
-#define CRONTAB_CONFIG      "crontab.conf"
+struct command_config;
+struct command;
+struct variable;
 
-char* name = NULL;
-
-int main(int argc, char** argv)
+struct list
 {
-    int opts;
+    void* item;
+    struct list* next;
+};
 
-    name = basename(argv[0]);
-    opts = handle_args(argc, argv);
+void delete_list(struct list* l);
 
-    argc -= opts;
-    argv += opts;
-    if (argc != 1)
-    {
-        ERR("too few/many parameters");
-        usage();
-        exit(1);
-    }
-    else
-        run_cron(*argv);
+void swap_ptr(void** p1, void** p2);
 
-    return 0;
-}
+const char* time_to_string(time_t t);
 
-void usage()
-{ 
-    INFO(
-            "usage()\n"
-            "\t%s [-h | --help]\n"
-            "\t%s [-d | --debug] [-l |--log-to=filename] <filename>",
-            name, name);
-}
+/*
+ * removes all blank-characters from beginning and end
+ */
+void trim(char* str);
 
+void usage();
+/*
+ * handle arguments from usage();
+ */
+int handle_args(int argc, char** argv);
+
+#endif /* !UTILS_H */
 

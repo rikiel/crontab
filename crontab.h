@@ -22,22 +22,27 @@
 #ifndef CRONTAB_H
 #define CRONTAB_H
 
-#include "conf.h"
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
+struct list;
 
+/*
+ * runs cron daemon with config
+ */
+void run_cron(const char* config_file);
 
+/*
+ * run all commands that needs to be executed in this minute
+ */
+void run_commands(const struct list* cmd);
+
+/*
+ * run command: "bash -c $command"
+ */
 void run_command(const char* command);
 
-void schedule_cron(time_t t);
-
-void run_cron(const char* configfile);
-
-
-
-
+/*
+ * calls waitpid() on all fork-ed processes
+ */
+void wait_children();
 
 #endif /* !CRONTAB_H */
 

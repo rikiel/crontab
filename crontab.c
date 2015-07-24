@@ -20,72 +20,112 @@
  */
 
 
+#include <errno.h>      // errno
+#include <unistd.h>     // fork
+#include <string.h>     // strerror
+#include <stdlib.h>     // abort
+#include <assert.h>     // assert
+#include <sys/types.h>
+#include <sys/wait.h>   // waitpid
+
 #include "crontab.h"
-#include <thread>
+#include "conf.h"
+#include "utils.h"
 
+#define CRON_SLEEP_TIME     60
+#define MAX_ERRORS          10
 
-#define CRON_SLEEP_TIME 60
-#define CRON_EMPTY_SLEEP_TIME 300
-#define CRON_MAX_SLEEP_TIME 300
+size_t err = 0;
 
+void run_cron(const char* config_file)
+{
+    APP_DEBUG_FNAME;
 
+    size_t iterations = 0;
+    struct list* cfg = NULL;
+
+    INFO("cron_daemon: START");
+
+    while(1)
+    {
+        ++iterations;
+        DEBUG("cron iteration #%lu", iterations);
+
+        if (read_config(config_file, &cfg))
+        {
+            WARN("read_config('%s') failed", config_file);
+            if (++err > MAX_ERRORS)
+            {
+                ERR("MAX errors reached, aborting");
+                abort();
+            }
+        }
+
+        run_commands(cfg);
+        delete_list(cfg);
+
+        wait_children();
+
+        DEBUG("sleeping");
+        sleep(CRON_SLEEP_TIME);
+    }
+}
 
 void run_command(const char* command)
 {
-    int i = fork();
+    APP_DEBUG_FNAME;
 
+    int i;
+    
+    i = fork();
     switch(i)
     {
         case -1:
-            LOG("fork error '%s'", strerror(errno));
+            ERR("fork: '%s'", strerror(errno));
+            ++err;
             break;
         case 0: // child
-            LOG("fork ok, running command: /bin/sh -c '%s'", command);
-            execl("/bin/sh", "sh", "-c", command, NULL);
-            ERROR("exec failed with error '%s'", strerror(errno));
+            INFO("fork ok, running command: /bin/bash -c '%s'", command);
+            execl("/bin/bash", "bash", "-c", command, NULL);
+            ERR("exec command failed with error '%s', aborting", strerror(errno));
+            abort();
             break;
         default:
-            INFO("process with pid %i created", i);
+            INFO("process with pid %i created, run command '%s'", i, command);
             break;
     }
 }
 
-void run_cron(const char* configfile)
+void run_commands(const struct list* cmd)
 {
-    int index;
-    while(1)
+    APP_DEBUG_FNAME;
+
+    time_t now;
+    struct command* c;
+
+    time(&now);
+
+    while(cmd)
     {
-        index = 0;
-        struct com_pair p = read_file(configfile);
-        if (p.count == 0)
-            sleep(CRON_EMPTY_SLEEP_TIME);
-        else
-        {
-            while (index < p.count && 
-                    CRON_SLEEP_TIME >=
-                        (int)(p.commands[index].seconds - time(NULL)))
-            {   // maju byt vykonane v tejto minute...
-                schedule_cron(p.commands[index].seconds);
-                run_command(p.commands[index].command_exec);
-                ++index;
-            }
-            sleep(CRON_SLEEP_TIME);
-        }
+        c = (struct command*) cmd->item;
+
+        // vv should be run in this minute
+        if (abs(now - c->seconds) < CRON_SLEEP_TIME)
+            run_command(c->cmd);
+        cmd = cmd->next;
     }
 }
 
-void schedule_cron(time_t t)
+void wait_children()
 {
-    while(CRON_SLEEP_TIME < (int)(t - time(NULL)))
+    APP_DEBUG_FNAME;
+
+    int status;
+    pid_t pid;
+    while((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-        sleep(CRON_SLEEP_TIME / 2);
+        assert(WIFEXITED(status));
+        INFO("process %li exited with status %li", (int)pid, status);
     }
 }
-
-
-
-
-
-
-
 
