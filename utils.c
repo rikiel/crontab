@@ -23,6 +23,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <getopt.h>
 #include "utils.h"
 #include "conf.h"
@@ -60,7 +61,7 @@ swap_ptr(void **p1, void **p2)
 void
 delete_list(struct list *l)
 {
-	APP_DEBUG_FNAME;
+	// APP_DEBUG_FNAME;
 
 	struct list *next;
 	while (l) {
@@ -98,19 +99,15 @@ handle_args(int argc, char **argv)
 	};
 
 	while ((ch = getopt_long(argc, argv, "hdl:", long_opts, NULL)) != -1) {
-		DEBUG("WHILE");
 		switch (ch) {
 			case 'h':
-				DEBUG("HELP");
 				usage();
 				exit(0);
 				break;
 			case 'd':
-				DEBUG("DEBUG");
-				SET_LOGGER_PRIORITY("DEBUG");
+				SET_LOGGER_PRIORITY(DEBUG);
 				break;
 			case 'l':
-				DEBUG("LOG_TO '%s", optarg);
 				log_to_file(optarg);
 				break;
 			default:
@@ -120,6 +117,7 @@ handle_args(int argc, char **argv)
 				break;
 		}
 	}
+	fclose(stdin); // we do not want input in cron/children
 
 	return (optind);
 }

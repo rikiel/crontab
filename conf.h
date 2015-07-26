@@ -113,6 +113,11 @@ size_t run_r(const char *regex_str, char *text);
  */
 int check_line(const char *line);
 
+/*
+ * prints all variables and commands to logger
+ *
+ * definition in logger.cpp
+ */
 void print_cfg(const struct list *variables, const struct list *commands);
 
 #endif /* !CONF_H */

@@ -190,6 +190,9 @@ create_cmd(char *text, struct list *vars)
 	cmd = transform(&c);
 	substitute(cmd->cmd, vars, cmd->cmd);
 
+	DEBUG("command '%s : %s' created",
+			time_to_string(cmd->seconds), cmd->cmd);
+
 	return (cmd);
 }
 
@@ -215,6 +218,8 @@ create_var(char *text, struct list *vars)
 
 	substitute(var->substitution, vars, var->substitution);
 
+	DEBUG("variable '%s = %s' created", var->name, var->substitution);
+
 	return (var);
 }
 
@@ -222,13 +227,12 @@ void
 substitute(const char *text, struct list *vars, char *substitued)
 {
 	APP_DEBUG_FNAME;
-	DEBUG("substitute('%s')", text);
 	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
 
 	regex_t reg;
 	regmatch_t match;
 	char regstr[CONF_VAR_NAME_MAXLENGTH + 3] = {'\\', '$'};
-	// ^^ bude tu regexp '\$VAR'
+	// ^^ there will be regexp \$VAR
 	struct variable *v;
 	size_t n;
 	size_t maxlength;
@@ -249,7 +253,6 @@ substitute(const char *text, struct list *vars, char *substitued)
 		write.ptr = write.buff;
 		strcpy(regstr + 2, v->name);
 		compile_regex(&reg, regstr);
-		DEBUG("regstr '%s'", regstr);
 
 		while (regexec(&reg, read.ptr, 1, &match, 0) == 0) {
 			// copy string before "$VAR"
@@ -274,11 +277,11 @@ substitute(const char *text, struct list *vars, char *substitued)
 		strncpy(write.ptr, read.ptr, n);
 		write.ptr[n] = '\0';
 
-		DEBUG("in '%s', out '%s'", read.buff, write.buff);
 		swap_ptr((void**)&write.buff, (void**)&read.buff);
 
 		vars = vars->next;
 	}
+	DEBUG("substitute('%s') = '%s'", text, read.buff);
 	strcpy(substitued, read.buff);
 
 	free(read.buff);
@@ -312,7 +315,7 @@ read_config(const char *filename, struct list **commands)
 	}
 
 	while ((read_length = getline(&line, &len, input)) != -1) {
-		// odstrani \n z konca
+	// delete \n from the end
 		if (read_length > 0)
 			line[read_length - 1] = '\0';
 		switch (check_line(line)) {
@@ -347,37 +350,4 @@ read_config(const char *filename, struct list **commands)
 
 	*commands = beg_cmd;
 	return (0);
-}
-
-void
-print_cfg(const struct list *variables, const struct list *commands)
-{
-	APP_DEBUG_FNAME;
-	struct variable *v;
-	struct command *c;
-
-	log_append("CONFIG:\n");
-	log_append("*******CRON VARIABLES:*******\n");
-	while (variables) {
-		v = variables->item;
-
-		log_append(v->name);
-		log_append(" = ");
-		log_append(v->substitution);
-		log_append("\n");
-
-		variables = variables->next;
-	}
-	log_append("*******CRON COMMANDS:*******\n");
-	while (commands) {
-		c = commands->item;
-
-		log_append_i(c->seconds);
-		log_append("s, cmd: ");
-		log_append(c->cmd);
-		log_append("\n");
-
-		commands = commands->next;
-	}
-	log_flush();
 }

@@ -21,6 +21,9 @@
 
 #ifdef __cplusplus
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <log4cpp/Appender.hh>
 #include <log4cpp/FileAppender.hh>
 #include <log4cpp/OstreamAppender.hh>
@@ -30,44 +33,57 @@
 #include <log4cpp/PatternLayout.hh>
 #include "logger.hpp"
 
-#define	LOG_PATTERN	"%d{%H:%M:%S:%l} %u:\t[%p] %m%n"
+
+extern "C"
+{
+#include "utils.h"
+#include "conf.h"
+}
+
+#define	LOG_PATTERN	"%d{%H:%M:%S:%l}\t<%p>\t%m%n"
+/*
+ * in log_* functions i prepend "[PID]" before message, so pattern will be
+ * like: HH:MM:SS:mm <PRIORITY> [PID] MESSAGE
+ * where mm (%l in pattern) are microseconds
+ */
 
 log4cpp::Category &
 init_logger()
 {
 	log4cpp::Appender *console_appender;
-	log4cpp::Appender *file_appender;
 	log4cpp::PatternLayout *console_layout;
-	log4cpp::PatternLayout *file_layout;
-	std::string logfile = "build/program.log";
 
-	console_appender = new log4cpp::OstreamAppender("console", &std::cout);
-	file_appender = new log4cpp::FileAppender("default", logfile, false);
-						// ^^ append=false=>truncate
-
-	file_layout = new log4cpp::PatternLayout();
 	console_layout = new log4cpp::PatternLayout();
 	console_layout->setConversionPattern(LOG_PATTERN);
-	file_layout->setConversionPattern(LOG_PATTERN);
 
-	file_appender->setLayout(file_layout);
+	console_appender = new log4cpp::OstreamAppender("console", &std::cout);
 	console_appender->setLayout(console_layout);
 
 	log4cpp::Category& log = log4cpp::Category::getRoot();
-	log.setPriority(log4cpp::Priority::DEBUG);
-
+	log.setPriority(log4cpp::Priority::INFO);
 	log.addAppender(console_appender);
-	log.addAppender(file_appender);
 
 	return (log);
 }
 
 log4cpp::Category &logger = init_logger();
-std::string appender;
+
+inline std::string
+pid_str(const char *s)
+{
+	std::stringstream str;
+	str
+		<< "["
+		<< getpid()
+		<< "]\t"
+		<< s;
+	return (str.str());
+}
 
 extern "C"
 {
-	void log_to_file(const char *filename)
+	void
+	log_to_file(const char *filename)
 	{
 		// APP_DEBUG_FNAME;
 		DEBUG("add log file '%s'", filename);
@@ -88,28 +104,34 @@ extern "C"
 	{ \
 		va_list va; \
 		va_start(va, str); \
-		logger.logva(log4cpp::Priority::PRIORITY, str, va); \
+		logger.logva(log4cpp::Priority::PRIORITY, \
+				pid_str(str).c_str(), va); \
 		va_end(va); \
 	}
 
-	void log_debug  (const char *str, ...)
+	void
+	log_debug  (const char *str, ...)
 	{
 		MY_LOG(DEBUG);
 	}
-	void log_info   (const char *str, ...)
+	void
+	log_info   (const char *str, ...)
 	{
 		MY_LOG(INFO);
 	}
-	void log_warn   (const char *str, ...)
+	void
+	log_warn   (const char *str, ...)
 	{
 		MY_LOG(WARN);
 	}
-	void log_error  (const char *str, ...)
+	void
+	log_error  (const char *str, ...)
 	{
 		MY_LOG(ERROR);
 	}
 
-	void log_priority(const char *priority)
+	void
+	log_priority(const char *priority)
 	{
 #define	SET_PRIORITY(P)	logger.setPriority(log4cpp::Priority::P)
 		std::string p = priority;
@@ -120,22 +142,45 @@ extern "C"
 			SET_PRIORITY(INFO);
 		else if (p == "WARN")
 			SET_PRIORITY(WARN);
+		else
+			WARN("not supported priority '%s'", priority);
 	}
 
-	void log_append_i(int i)
+	void
+	print_cfg(const struct list *variables, const struct list *commands)
 	{
+		APP_DEBUG_FNAME;
+		struct variable *v;
+		struct command *c;
 		std::stringstream str;
-		str << i;
-		appender += str.str();
-	}
-	void log_append(const char *str)
-	{
-		appender += str;
-	}
-	void log_flush()
-	{
-		INFO("%s", appender.c_str());
-		appender.clear();
+
+		str
+			<< "CONFIG:\n"
+			<< "*******CRON VARIABLES:*******\n";
+		while (variables) {
+			v = (struct variable *)variables->item;
+
+			str
+				<< v->name
+				<< " = "
+				<< v->substitution
+				<< std::endl;
+
+			variables = variables->next;
+		}
+		while (commands) {
+			c = (struct command *)commands->item;
+
+			str
+				<< time_to_string(c->seconds)
+				<< "; cmd: "
+				<< c->cmd
+				<< std::endl;
+
+			commands = commands->next;
+		}
+
+		INFO("%s", str.str().c_str());
 	}
 }
 

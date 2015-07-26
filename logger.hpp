@@ -41,10 +41,6 @@ void log_warn(const char *str, ...);
 void log_error(const char *str, ...);
 void log_priority(const char *priority);
 
-void log_append(const char *str);
-void log_append_i(int i);
-void log_flush();
-
 #ifdef __cplusplus
 }
 #endif

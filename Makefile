@@ -1,83 +1,45 @@
 #
 # File: Makefile
 # Created: 2015-02-15
-# By: Richard Eliáš <richard@ba30.eu>
+# By: Richard Eliáš <richard.elias@matfyz.cz>
 #
 
+SHELL		= bash
+CC		= gcc
+CXX		= g++
+CFLAGS		= -Wall -g -c
+LDFLAGS		= $(shell pkg-config --libs log4cpp)
 
-SHELL			= bash
-CC				= gcc
-CXX				= g++
-CFLAGS			= -std=c11 -c -Wall -g
-CPPFLAGS		= -std=c++11 -c -Wall -g
-LFLAGS			= $(shell pkg-config --libs log4cpp)
+TARGET		= mycrontab
+SOURCES		= conf.c crontab.c main.c utils.c logger.cpp
+OBJECTS		= $(shell echo $(SOURCES) | sed 's/\.\(c\|cpp\)/.o/g')
 
-BUILDDIR		= build
-TARGET			= mycrontab
-SOURCES			= $(shell find ./ -name "*.c" | sed 's@\./@@g')
-HEADERS			= $(shell find ./ -name "*.h" | sed 's@\./@@g')
-OBJECTS			= $(SOURCES:%.c=%.o) logger.o
-MAKEFILES		= $(OBJECTS:%.o=%.mk)
+ARGS		= --debug --log-to=$(TARGET).log crontab
+run: $(TARGET)
+	./$(TARGET) $(ARGS)
 
-MAKEDEPENDENCY	= $(CC) -MM -E 
+$(TARGET): $(OBJECTS)
+	$(CXX) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
 
-KILLTIME = 1
+build: $(OBJECTS)
+	$(CXX) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
 
-run: build
-	@echo "**********************************************************************"
-	@echo "********************* RUNNING  PROGRAM *******************************"
-	@echo "**********************************************************************"
-	@echo
-	sleep $(KILLTIME) && killall $(TARGET) 2> /dev/null &
-	$(BUILDDIR)/$(TARGET)
+# prerekvizity
+crontab.o: crontab.c crontab.h conf.h utils.h logger.hpp
+conf.o: conf.c conf.h utils.h logger.hpp
+utils.o: utils.c utils.h conf.h logger.hpp
+main.o: main.c utils.h crontab.h
 
+# kompilacia len pre logger
+logger.o: logger.cpp logger.hpp
+	$(CXX) $(CFLAGS) $< -o $@
 
-build: $(BUILDDIR)/$(TARGET)
+# spolocna kompilacia pre .c subory
+%.o:
+	$(CC) $(CFLAGS) $(@:.o=.c) -o $@
 
-debug: build
-	gdb $(BUILDDIR)/$(TARGET)
-
-$(BUILDDIR)/$(TARGET): $(BUILDDIR)/Makefile
-
-$(BUILDDIR)/Makefile: $(SOURCES) $(HEADERS) $(addprefix $(BUILDDIR)/,$(MAKEFILES))
-	@rm -f $@
-	@echo -e\
-			\\nbuild : $(TARGET) \\n \
-			\\n \
-			\\n$(TARGET) : $(OBJECTS) \\n\\t \
-			@echo "****************LINKING:****************" \\n\\t \
-			@echo \\n\\t \
-			$(CXX) $(LFLAGS) $(OBJECTS) -o $(TARGET) \\n\\t \
-			@echo \\n\\t \
-			@echo "**************END-LINKING:**************" \\n\\t \
-			\\n \
-			\\ninclude $(MAKEFILES) \
-					>> $@
-	@make -j4 --directory=$(BUILDDIR) -f Makefile
-
-$(BUILDDIR)/%.mk: %.c
-	@mkdir -p $(BUILDDIR)
-	@rm -f $@
-	@$(MAKEDEPENDENCY) $(CFLAGS) $^ | sed 's@\([^. :]*.\.\([hc]pp\|[hc]\)\)@../\1@g' \
-					>> $@
-	@echo '	$(CC) $(CFLAGS) $$< -o $$@ ' \
-					>> $@
-
-$(BUILDDIR)/%.mk: %.cpp
-	@mkdir -p $(BUILDDIR)
-	@rm -f $@
-	@$(MAKEDEPENDENCY) $(CPPFLAGS) $^ | sed 's@\([^. :]*.\.\([hc]pp\|[hc]\)\)@../\1@g' \
-					>> $@
-	@echo '	$(CXX) $(CPPFLAGS) $$< -o $$@ ' \
-					>> $@
-
+cstyle:
+	./cstyle.pl *.[ch] *.[ch]pp
 
 clean:
-	rm -rf $(BUILDDIR)
-
-cleanMK:
-	rm -f $(BUILDDIR)/*.mk Makefile
-
-.PHONY: $(BUILDDIR)/Makefile clean cleanMK
-
-
+	rm -f *.o *.log $(TARGET)
