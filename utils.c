@@ -20,14 +20,13 @@
  */
 
 
-#include <string.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <getopt.h>
-#include "utils.h"
-#include "conf.h"
+#include <string.h>	// strlen
+#include <ctype.h>	// isspace
+#include <stdlib.h>	// exit
+#include <stdio.h>	// fclose
+#include <getopt.h>	// long_opts
 
+#include "utils.h"
 
 void
 trim(char *str)
@@ -74,12 +73,12 @@ delete_list(struct list *l)
 const char *
 time_to_string(time_t t)
 {
-#define	TIME_FORMAT	"DD.MM.YYYY HH:MM"
+#define	TIME_FORMAT	"DD.MM.YYYY HH:MM:SS"
 	static char buff[STR_LENGTH(TIME_FORMAT)];
 	struct tm date;
 
 	localtime_r(&t, &date);
-	strftime(buff, STR_LENGTH(TIME_FORMAT), "%d.%m.%Y %H:%M", &date);
+	strftime(buff, STR_LENGTH(TIME_FORMAT), "%d.%m.%Y %H:%M:%S", &date);
 
 	return (buff);
 }
@@ -104,7 +103,7 @@ handle_args(int argc, char **argv)
 				exit(0);
 				break;
 			case 'd':
-				SET_LOGGER_PRIORITY(DEBUG);
+				log_set_priority(debug);
 				break;
 			case 'l':
 				log_to_file(optarg);

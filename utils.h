@@ -22,8 +22,9 @@
 #ifndef UTILS_H
 #define	UTILS_H
 
-#include "logger.hpp"
 #include <time.h>
+
+#include "logger.h"
 
 #define	STR_LENGTH(s)	(sizeof (s))
 

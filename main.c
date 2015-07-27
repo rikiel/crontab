@@ -19,8 +19,9 @@
  * USA.
  */
 
-#include <stdlib.h>
-#include <libgen.h>
+#include <stdlib.h>	// exit
+#include <libgen.h>	// basename
+
 #include "crontab.h"
 #include "utils.h"
 
@@ -32,6 +33,7 @@ main(int argc, char **argv)
 {
 	int opts;
 
+	init_logger();
 	name = basename(argv[0]);
 	opts = handle_args(argc, argv);
 
@@ -44,6 +46,8 @@ main(int argc, char **argv)
 	}
 	else
 		run_cron(*argv);
+
+	destroy_logger();
 
 	return (0);
 }

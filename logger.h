@@ -20,7 +20,7 @@
  */
 
 #ifndef LOGGER_H
-#define LOGGER_H
+#define	LOGGER_H
 
 #include "utils.h"
 
@@ -31,13 +31,14 @@ enum priority
 
 struct logger
 {
-	struct list* files;
+	struct list *files;
 	enum priority p;
 };
 
 extern struct logger logger;
 
 void init_logger();
+void destroy_logger();
 
 // add file for log messages
 void log_to_file(const char *filename);
@@ -48,26 +49,12 @@ void log_set_priority(enum priority p);
 void log_message(enum priority p, const char *message, ...);
 
 
-
-
-
-
-
-// prints message to logger
-void log_debug(const char *message, ...);
-void log_info(const char *message, ...);
-void log_warn(const char *message, ...);
-void log_error(const char *message, ...);
-
-
-
-#define	DEBUG(...)	log_debug(__VA_ARGS__)
-#define	INFO(...)	log_info(__VA_ARGS__)
-#define	WARN(...)	log_warn(__VA_ARGS__)
-#define	ERR(...)	log_error(__VA_ARGS__)
+#define	DEBUG(...)	log_message(debug, __VA_ARGS__)
+#define	INFO(...)	log_message(info, __VA_ARGS__)
+#define	WARN(...)	log_message(warn, __VA_ARGS__)
+#define	ERR(...)	log_message(error, __VA_ARGS__)
 
 #define	APP_DEBUG_FNAME \
 			DEBUG("BEGIN_FUNCTION: %s()", __PRETTY_FUNCTION__)
 
 #endif /* !LOGGER_H */
-

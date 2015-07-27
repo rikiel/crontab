@@ -21,42 +21,80 @@
 
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <assert.h>
+#include <stdlib.h>	// abort
+#include <stdarg.h>	// variadic functions
+#include <sys/time.h>	// gettimeofday
+#include <unistd.h>	// getpid
+#include <assert.h>	// assert
+#include <pthread.h>	// mutex
+
 #include "logger.h"
+#include "conf.h"
 
 struct logger logger;	// definition
 
-void init_logger()
+pthread_mutex_t mutex;
+
+void
+lock_m()
+{
+	if (pthread_mutex_lock(&mutex) != 0)
+		abort();
+}
+void
+unlock_m()
+{
+	if (pthread_mutex_unlock(&mutex) != 0)
+		abort();
+}
+
+void
+init_logger()
 {
 	APP_DEBUG_FNAME;
 
-	logger.p = debug;
+	logger.p = info;
 	logger.files = malloc(sizeof (struct list));
 	logger.files->next = NULL;
 	logger.files->item = stdout;
+
+	pthread_mutex_init(&mutex, NULL);
+}
+
+void
+destroy_logger()
+{
+	APP_DEBUG_FNAME;
+
+	struct list *l;
+	l = logger.files;
+
+	while (l != NULL) {
+		fclose(l->item);
+
+		l = l->next;
+	}
+
+	pthread_mutex_destroy(&mutex);
 }
 
 // sets logger priority for output
-void log_set_priority(enum priority p)
+void
+log_set_priority(enum priority p)
 {
 	logger.p = p;
 }
 
 // add file for log messages
-void log_to_file(const char *filename)
+void
+log_to_file(const char *filename)
 {
 	APP_DEBUG_FNAME;
 
-	FILE* f;
-	struct list* l;
+	FILE *f;
+	struct list *l;
 	f = fopen(filename, "w");
-	if (f == NULL)
-	{
+	if (f == NULL || ferror(f)) {
 		ERR("fopen log file '%s' failed, continue", filename);
 		return;
 	}
@@ -64,95 +102,158 @@ void log_to_file(const char *filename)
 	while (l->next != NULL)
 		l = l->next;
 	l->next = malloc(sizeof (struct list));
-	l->next->next = NULL;
-	l->next->item = f;
+	l = l->next;
+	l->next = NULL;
+	l->item = f;
 }
 
-const char* priority_to_string()
+const char *
+priority_to_string(enum priority p)
 {
-	switch (logger.p) {
+	const char *out;
+
+	switch (p) {
 		case debug:
-			return ("DEBUG");
+			out = "DEBUG";
+			break;
 		case info:
-			return ("INFO");
+			out = "INFO";
+			break;
 		case warn:
-			return ("WARN");
+			out = "WARN";
+			break;
 		case error:
-			return ("ERROR");
+			out = "ERROR";
+			break;
 		default:
 			abort();
 	}
+	return (out);
 }
 
-long get_actual_ms()
+int
+get_us()
 {
 	struct timeval t;
 
 	gettimeofday(&t, NULL);
-	return t.tv_usec / 1000;
+
+	return (t.tv_usec);
 }
 
-int log_priority(enum priority p)
+int
+can_log(enum priority p)
 {
-	return logger.p == debug ||
+	return (logger.p == debug ||
 		(logger.p == info && p != debug) ||
-		(logger.p == warn && (p == warn || p == error)) || 
-		(logger.p == error && p == error);
+		(logger.p == warn && (p == warn || p == error)) ||
+		(logger.p == error && p == error));
 }
 
-// prints message to logger
-void log_message(enum priority p, const char *message, ...)
+// prints time, priority, pids to streams
+int
+print_init_message(enum priority p)
 {
-#define LOG_PATTERN		"%i:%i:%i:%li\t<%s>\t[%i]\t%s"
-
-// LOG_TIME_PATTERN	HH:MM:SS:mmm
-// PATTERN:		TIME\t<PRIORITY>\t[PID] MESSAGE
-
-
-#define TIME_LENGTH		12
-#define PRIORITY_LENGTH		5
-#define PID_LENGTH		20
-
-	va_list va;
+	// display 2 (/5) numbers
+#define	PRINT_PATTERN	"%02i:%02i:%02i:%05i\t[%s]\t<%i>\t"
+	struct list *l;
 	time_t t;
 	struct tm date;
-	char* buff;
-	size_t n;
-	struct list* l;
 
-	if (!log_priority(p))
-		return;
+	if (!can_log(p))
+		return (0);
 
-	va_start(va, message);
 	time(&t);
 	localtime_r(&t, &date);
 
-	n = TIME_LENGTH + PRIORITY_LENGTH + PID_LENGTH + strlen(message) + 1;
-	buff = malloc(n);
+	lock_m();
 
-	sprintf(buff, LOG_PATTERN,
+	l = logger.files;
+	while (l != NULL) {
+		fprintf(l->item,
+			PRINT_PATTERN,
 			date.tm_hour,
 			date.tm_min,
 			date.tm_sec,
-			get_actual_ms(),
-			priority_to_string(),
-			(int)getpid(),
-			message);
-
-	l = logger.files;
-
-	while(l != NULL)
-	{
-		vfprintf(l->item, buff, va);
+			get_us(),
+			priority_to_string(p),
+			(int)getpid());
 
 		l = l->next;
 	}
-
-	va_end(va);
+	return (1);
 }
 
+// prints message to logger
+void
+log_message(enum priority p, const char *message, ...)
+{
+	va_list va;
+	struct list *l;
+	FILE *f;
+
+	if (!print_init_message(p))
+		return;
 
 
+	l = logger.files;
+	while (l != NULL) {
+		va_start(va, message);
 
+		f = l->item;
+		vfprintf(f, message, va);
+		fprintf(f, "\n");
+		fflush(f);
 
+		l = l->next;
+		va_end(va);
+	}
 
+	unlock_m();
+}
+
+void
+print_cfg(const struct list *variables, const struct list *commands)
+{
+	APP_DEBUG_FNAME;
+	struct variable *v;
+	struct command *c;
+	struct list *l;
+	FILE *f;
+	const struct list *var;
+	const struct list *cmd;
+
+	if (!print_init_message(info))
+		return;
+
+	l = logger.files;
+	while (l != NULL) {
+		var = variables;
+		cmd = commands;
+		f = l->item;
+		fprintf(f, "%s",
+				"CONFIG:\n"
+				"*******CRON VARIABLES:*******\n");
+		while (var != NULL) {
+			v = (struct variable *)var->item;
+
+			fprintf(f, "%s = %s\n",
+					v->name, v->substitution);
+
+			var = var->next;
+		}
+		fprintf(f, "*******CRON COMMANDS:*******\n");
+		while (cmd != NULL) {
+			c = (struct command *)cmd->item;
+
+			fprintf(f, "%s; cmd: %s\n",
+					time_to_string(c->seconds),
+					c->cmd);
+
+			cmd = cmd->next;
+		}
+		fflush(f);
+		l = l->next;
+	}
+	unlock_m();
+}

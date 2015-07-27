@@ -6,40 +6,42 @@
 
 SHELL		= /bin/bash
 CC		= gcc
-CXX		= g++
-CFLAGS		= -Wall -g -c
-LDFLAGS		= $($(SHELL) pkg-config --libs log4cpp)
+CFLAGS		= -Wall -Werror -g -c
+LDFLAGS		= -lpthread
 
 TARGET		= mycrontab
-SOURCES		= conf.c crontab.c main.c utils.c logger.cpp
-OBJECTS		= $(shell echo $(SOURCES) | sed 's/\.\(c\|cpp\)/.o/g')
+SOURCES		= conf.c crontab.c main.c utils.c logger.c
+OBJECTS		= $(SOURCES:.c=.o)
+
+MAKEDEPENDENCY	= $(CC) -MM -E
+GETDEPENDENCY	= sed 's/^.*://'
 
 ARGS		= --debug --log-to=$(TARGET).log crontab
 run: $(TARGET)
 	./$(TARGET) $(ARGS)
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
 
 build: $(OBJECTS)
-	$(CXX) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
+
+debug: build
+	gdb $(TARGET)
 
 # prerekvizity
-crontab.o: crontab.c crontab.h conf.h utils.h logger.hpp
-conf.o: conf.c conf.h utils.h logger.hpp
-utils.o: utils.c utils.h conf.h logger.hpp
-main.o: main.c utils.h crontab.h
-
-# kompilacia len pre logger
-logger.o: logger.cpp logger.hpp
-	$(CXX) $(CFLAGS) $< -o $@
+conf.o:		$(shell $(MAKEDEPENDENCY) conf.c	| $(GETDEPENDENCY))
+crontab.o:	$(shell $(MAKEDEPENDENCY) crontab.c	| $(GETDEPENDENCY))
+logger.o:	$(shell $(MAKEDEPENDENCY) logger.c	| $(GETDEPENDENCY))
+main.o:		$(shell $(MAKEDEPENDENCY) main.c	| $(GETDEPENDENCY))
+utils.o:	$(shell $(MAKEDEPENDENCY) utils.c	| $(GETDEPENDENCY))
 
 # spolocna kompilacia pre .c subory
 %.o:
 	$(CC) $(CFLAGS) $(@:.o=.c) -o $@
 
 cstyle:
-	./cstyle.pl *.[ch] *.[ch]pp
+	./cstyle.pl *.[ch]
 
 clean:
 	rm -f *.o *.log $(TARGET)

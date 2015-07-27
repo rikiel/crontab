@@ -24,7 +24,6 @@
 #include <string.h>	// strerror
 #include <stdlib.h>	// abort
 #include <assert.h>	// assert
-#include <sys/types.h>
 #include <sys/wait.h>	// waitpid
 
 #include "crontab.h"
@@ -111,7 +110,7 @@ run_commands(const struct list *cmd)
 	struct command *c;
 
 	time(&now);
-	DEBUG("now: %s", time_to_string(now));
+	now = now / 60 * 60;
 
 	while (cmd) {
 		c = (struct command *)cmd->item;
