@@ -19,18 +19,13 @@
  * USA.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <libgen.h>
-#include "conf.h"
 #include "crontab.h"
-#include "logger.hpp"
 #include "utils.h"
 
-#define	CRONTAB_CONFIG	"crontab.conf"
 
-char *name = NULL;
+char *name = NULL;	// need in usage()
 
 int
 main(int argc, char **argv)

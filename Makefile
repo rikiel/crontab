@@ -4,11 +4,11 @@
 # By: Richard Eliáš <richard.elias@matfyz.cz>
 #
 
-SHELL		= bash
+SHELL		= /bin/bash
 CC		= gcc
 CXX		= g++
 CFLAGS		= -Wall -g -c
-LDFLAGS		= $(shell pkg-config --libs log4cpp)
+LDFLAGS		= $($(SHELL) pkg-config --libs log4cpp)
 
 TARGET		= mycrontab
 SOURCES		= conf.c crontab.c main.c utils.c logger.cpp

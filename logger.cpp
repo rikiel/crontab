@@ -19,6 +19,8 @@
  * USA.
  */
 
+#ifdef NODEF
+
 #ifdef __cplusplus
 
 #include <sys/types.h>
@@ -31,21 +33,19 @@
 #include <log4cpp/BasicLayout.hh>
 #include <log4cpp/Priority.hh>
 #include <log4cpp/PatternLayout.hh>
+
 #include "logger.hpp"
-
-
 extern "C"
 {
 #include "utils.h"
 #include "conf.h"
 }
-
-#define	LOG_PATTERN	"%d{%H:%M:%S:%l}\t<%p>\t%m%n"
 /*
  * in log_* functions i prepend "[PID]" before message, so pattern will be
  * like: HH:MM:SS:mm <PRIORITY> [PID] MESSAGE
  * where mm (%l in pattern) are microseconds
  */
+#define	LOG_PATTERN	"%d{%H:%M:%S:%l}\t<%p>\t%m%n"
 
 log4cpp::Category &
 init_logger()
@@ -86,6 +86,7 @@ extern "C"
 	log_to_file(const char *filename)
 	{
 		// APP_DEBUG_FNAME;
+
 		DEBUG("add log file '%s'", filename);
 
 		log4cpp::Appender *appender;
@@ -157,6 +158,7 @@ extern "C"
 		str
 			<< "CONFIG:\n"
 			<< "*******CRON VARIABLES:*******\n";
+
 		while (variables) {
 			v = (struct variable *)variables->item;
 
@@ -184,4 +186,5 @@ extern "C"
 	}
 }
 
+#endif
 #endif

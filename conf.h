@@ -55,10 +55,10 @@ struct command_config {
 };
 
 /*
- * nacita cron config `filename`,
- * vysledok je v `commands` ako zoznam command-ov
+ * reads cron config `filename`,
+ * output is stored in `commands` as list of command-s
  *
- * vrati 0 ak je vsetko ok, inac -1
+ * returns 0 if no errors occurred, otherwise -1
  */
 int read_config(const char *filename, struct list **commands);
 

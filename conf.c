@@ -166,7 +166,7 @@ create_cmd(char *text, struct list *vars)
 	size_t n;
 
 #define	asterisk (strcmp(text, "*") == 0) ? -1 : strtol(text, NULL, 10)
-	// ^^ preslo to matchovanim s regexpom, takze ziadna chyba nastat nema.
+	// ^^ matched by regexp, so no errors should occur
 
 	n = run_r(CONF_REGEX_COMMAND_MIN, text);
 	c.min = asterisk;
@@ -190,7 +190,7 @@ create_cmd(char *text, struct list *vars)
 	cmd = transform(&c);
 	substitute(cmd->cmd, vars, cmd->cmd);
 
-	DEBUG("command '%s : %s' created",
+	DEBUG("command '%s: %s' created",
 			time_to_string(cmd->seconds), cmd->cmd);
 
 	return (cmd);
@@ -311,6 +311,7 @@ read_config(const char *filename, struct list **commands)
 	input = fopen(filename, "r");
 	if (input == NULL) {
 		ERR("fopen(%s)", filename);
+		free(line);
 		return (-1);
 	}
 
@@ -341,6 +342,8 @@ read_config(const char *filename, struct list **commands)
 		}
 		l = NULL;
 	}
+	if (ferror(input))
+		WARN("ERROR while reading '%s', trying to continue", filename);
 
 	print_cfg(beg_var, beg_cmd);
 

@@ -75,12 +75,11 @@ const char *
 time_to_string(time_t t)
 {
 #define	TIME_FORMAT	"DD.MM.YYYY HH:MM"
-#define	STR_LENGTH	(sizeof (TIME_FORMAT))
-	static char buff[STR_LENGTH];
+	static char buff[STR_LENGTH(TIME_FORMAT)];
 	struct tm date;
 
 	localtime_r(&t, &date);
-	strftime(buff, STR_LENGTH, "%d.%m.%Y %H:%M", &date);
+	strftime(buff, STR_LENGTH(TIME_FORMAT), "%d.%m.%Y %H:%M", &date);
 
 	return (buff);
 }

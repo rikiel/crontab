@@ -1,5 +1,5 @@
 /*
- * File: logger.hpp
+ * File: logger.h
  *
  * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
  *
@@ -19,25 +19,39 @@
  * USA.
  */
 
-#ifndef LOGGER_HPP
-#define	LOGGER_HPP
+#ifndef LOGGER_H
+#define LOGGER_H
 
-#ifdef NODEF
+#include "utils.h"
 
-
-#ifdef __cplusplus
-
-#include <log4cpp/Category.hh>
-extern log4cpp::Category& logger;
-
-extern "C"
+enum priority
 {
-#endif
+	debug, info, warn, error
+};
 
-// C wrappers:
+struct logger
+{
+	struct list* files;
+	enum priority p;
+};
+
+extern struct logger logger;
+
+void init_logger();
 
 // add file for log messages
 void log_to_file(const char *filename);
+
+// sets logger priority for output
+void log_set_priority(enum priority p);
+
+void log_message(enum priority p, const char *message, ...);
+
+
+
+
+
+
 
 // prints message to logger
 void log_debug(const char *message, ...);
@@ -45,12 +59,6 @@ void log_info(const char *message, ...);
 void log_warn(const char *message, ...);
 void log_error(const char *message, ...);
 
-// sets logger priority for output
-void log_priority(const char *priority);
-
-#ifdef __cplusplus
-}
-#endif
 
 
 #define	DEBUG(...)	log_debug(__VA_ARGS__)
@@ -58,10 +66,8 @@ void log_priority(const char *priority);
 #define	WARN(...)	log_warn(__VA_ARGS__)
 #define	ERR(...)	log_error(__VA_ARGS__)
 
-#define	SET_LOGGER_PRIORITY(PRIORITY) \
-			log_priority(#PRIORITY);
-
 #define	APP_DEBUG_FNAME \
 			DEBUG("BEGIN_FUNCTION: %s()", __PRETTY_FUNCTION__)
-#endif
-#endif /* !LOGGER_HPP */
+
+#endif /* !LOGGER_H */
+

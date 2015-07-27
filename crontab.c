@@ -37,6 +37,15 @@
 size_t err = 0;
 
 void
+new_error()
+{
+	if (++err > MAX_ERRORS) {
+		ERR("MAX errors reached, aborting");
+		abort();
+	}
+}
+
+void
 run_cron(const char *config_file)
 {
 	APP_DEBUG_FNAME;
@@ -52,10 +61,7 @@ run_cron(const char *config_file)
 
 		if (read_config(config_file, &cfg)) {
 			WARN("read_config('%s') failed", config_file);
-			if (++err > MAX_ERRORS) {
-				ERR("MAX errors reached, aborting");
-				abort();
-			}
+			new_error();
 		}
 
 		run_commands(cfg);
@@ -63,7 +69,7 @@ run_cron(const char *config_file)
 
 		wait_children();
 
-		DEBUG("sleeping");
+		DEBUG("SLEEPING");
 		sleep(CRON_SLEEP_TIME);
 	}
 }
@@ -79,7 +85,7 @@ run_command(const char *command)
 	switch (i) {
 		case -1:
 			ERR("fork: '%s'", strerror(errno));
-			++err;
+			new_error();
 			break;
 		case 0: // child
 			INFO("FORK ok, RUN: /bin/bash -c '%s'",
@@ -105,6 +111,7 @@ run_commands(const struct list *cmd)
 	struct command *c;
 
 	time(&now);
+	DEBUG("now: %s", time_to_string(now));
 
 	while (cmd) {
 		c = (struct command *)cmd->item;
@@ -125,6 +132,7 @@ wait_children()
 	pid_t pid;
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		assert(WIFEXITED(status));
-		INFO("process %li exited with status %i", (int)pid, status);
+		INFO("process %li exited with status %i",
+				(int)pid, (char)status);
 	}
 }

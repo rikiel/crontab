@@ -40,7 +40,7 @@ void run_commands(const struct list *cmd);
 void run_command(const char *command);
 
 /*
- * calls waitpid() on all fork-ed processes
+ * calls waitpid() on all fork-ed child processes
  */
 void wait_children();
 

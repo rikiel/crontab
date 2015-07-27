@@ -25,6 +25,8 @@
 #include "logger.hpp"
 #include <time.h>
 
+#define	STR_LENGTH(s)	(sizeof (s))
+
 struct command_config;
 struct command;
 struct variable;
@@ -46,7 +48,13 @@ const char * time_to_string(time_t t);
  */
 void trim(char *str);
 
+/*
+ * prints usage message
+ *
+ * declaration in main.cpp
+ */
 void usage();
+
 /*
  * handle arguments from usage();
  */
