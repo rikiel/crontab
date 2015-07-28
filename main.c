@@ -37,6 +37,9 @@ main(int argc, char **argv)
 	name = basename(argv[0]);
 	opts = handle_args(argc, argv);
 
+	set_pgid();
+	set_exit_handler();
+
 	argc -= opts;
 	argv += opts;
 	if (argc != 1) {

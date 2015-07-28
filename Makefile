@@ -6,7 +6,7 @@
 
 SHELL		= /bin/bash
 CC		= gcc
-CFLAGS		= -Wall -Werror -g -c
+CFLAGS		= -Wall -g -c
 LDFLAGS		= -lpthread
 
 TARGET		= mycrontab
@@ -30,11 +30,18 @@ debug: build
 	gdb $(TARGET)
 
 # prerekvizity
-conf.o:		$(shell $(MAKEDEPENDENCY) conf.c	| $(GETDEPENDENCY))
-crontab.o:	$(shell $(MAKEDEPENDENCY) crontab.c	| $(GETDEPENDENCY))
-logger.o:	$(shell $(MAKEDEPENDENCY) logger.c	| $(GETDEPENDENCY))
-main.o:		$(shell $(MAKEDEPENDENCY) main.c	| $(GETDEPENDENCY))
-utils.o:	$(shell $(MAKEDEPENDENCY) utils.c	| $(GETDEPENDENCY))
+conf.o: conf.c conf.h utils.h logger.h
+crontab.o: crontab.c crontab.h conf.h utils.h logger.h
+logger.o: logger.c logger.h utils.h conf.h
+main.o: main.c crontab.h utils.h logger.h
+utils.o: utils.c utils.h logger.h
+
+## NEFUNGUJE na solarise...
+#conf.o:	$(shell $(MAKEDEPENDENCY) conf.c	| $(GETDEPENDENCY))
+#crontab.o:	$(shell $(MAKEDEPENDENCY) crontab.c	| $(GETDEPENDENCY))
+#logger.o:	$(shell $(MAKEDEPENDENCY) logger.c	| $(GETDEPENDENCY))
+#main.o:	$(shell $(MAKEDEPENDENCY) main.c	| $(GETDEPENDENCY))
+#utils.o:	$(shell $(MAKEDEPENDENCY) utils.c	| $(GETDEPENDENCY))
 
 # spolocna kompilacia pre .c subory
 %.o:

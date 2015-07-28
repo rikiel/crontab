@@ -84,12 +84,17 @@ run_command(const char *command)
 	switch (i) {
 		case -1:
 			ERR("fork: '%s'", strerror(errno));
+			errno = 0;
 			new_error();
 			break;
 		case 0: // child
 			INFO("FORK ok, RUN: /bin/bash -c '%s'",
 					command);
-			execl("/bin/bash", "bash", "-c", command, NULL);
+			// execl("/bin/bash", "bash", "-c", command, NULL);
+			// ^^ warning: missing sentinel in function
+			// 	call [-Wformat=] on Solaris
+			add_process_to_pgid();
+			execl("/bin/bash", "bash", "-c", command, (char *)0);
 			ERR("exec command failed with error '%s', aborting",
 				strerror(errno));
 			abort();

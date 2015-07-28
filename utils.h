@@ -61,4 +61,32 @@ void usage();
  */
 int handle_args(int argc, char **argv);
 
+/*
+ * sets process to be group leader for processes
+ */
+void set_pgid();
+
+/*
+ * add process to parent-process-group,
+ * so after termination all other processess can be killed via pgid
+ */
+void add_process_to_pgid();
+
+/*
+ * kill all subprocessess
+ */
+void exit_handler();
+
+/*
+ * add exit handler
+ */
+void set_exit_handler();
+
+#ifdef __sun
+#include <stdio.h>
+
+int getline(char **line_ptr, size_t *line_size, FILE *stream);
+
+#endif
+
 #endif /* !UTILS_H */

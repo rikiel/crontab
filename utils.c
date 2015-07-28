@@ -21,12 +21,19 @@
 
 
 #include <string.h>	// strlen
+#include <strings.h>	// bzero
 #include <ctype.h>	// isspace
 #include <stdlib.h>	// exit
 #include <stdio.h>	// fclose
 #include <getopt.h>	// long_opts
+#include <errno.h>	// errno
+#include <unistd.h>	// fork
+#include <signal.h>	// kill
+#include <assert.h>	// assert
 
 #include "utils.h"
+
+pid_t pgid;
 
 void
 trim(char *str)
@@ -119,3 +126,81 @@ handle_args(int argc, char **argv)
 
 	return (optind);
 }
+
+void
+set_pgid()
+{
+	APP_DEBUG_FNAME;
+
+	pgid = getpgid(0);
+}
+
+void
+add_process_to_pgid()
+{
+	APP_DEBUG_FNAME;
+
+	setpgid(getpid(), pgid);
+}
+
+void
+exit_handler()
+{
+	APP_DEBUG_FNAME;
+
+	assert(pgid > 0);
+
+	WARN("killing all subprocessess for pgid '%i'", (int)pgid);
+	destroy_logger();
+	kill(-pgid, SIGTERM);	// kills me too..
+}
+
+void
+set_exit_handler()
+{
+	APP_DEBUG_FNAME;
+
+	struct sigaction act;
+	bzero(&act, sizeof (struct sigaction));
+
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = exit_handler;
+	act.sa_flags = 0;
+	if (sigaction(SIGSEGV, &act, NULL) != 0	||
+			sigaction(SIGINT, &act, NULL) != 0) {
+		WARN("sigactions was not set, err=%s", strerror(errno));
+		errno = 0;
+	}
+
+	atexit(exit_handler);
+}
+
+#ifdef __sun
+
+#include <assert.h>
+
+int
+getline(char **line_ptr, size_t *line_size, FILE *stream)
+{
+	APP_DEBUG_FNAME;
+
+	int ch;
+	char *ptr = *line_ptr;
+	int n = 0;
+
+	while ((ch = getc(stream)) != EOF && ch != '\n') {
+		if (n == *line_size)
+			break;
+		*ptr++ = ch;
+		++n;
+	}
+	assert(*line_size != n + 1);
+	ptr[1] = '\0';
+
+	if (ch == EOF && n == 0)
+		return (-1);
+	else
+		return (n + 1);
+}
+
+#endif
