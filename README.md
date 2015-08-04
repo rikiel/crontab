@@ -1,20 +1,18 @@
-*********************************************************
-*			CRONTAB				*
-*********************************************************
+# CRONTAB
 
 Project implements subset of crontab functionality.
 
 Compilation of project can be done by running `make build`. Project has no dependencies.
 
-usage:
-	-h | --help:	prints help message
-	-d | --debug:	program will print debug messages
-	-l <file> | --log-to=file:
+## usage:
+  -h | --help:	prints help message
+  -d | --debug:	program will print debug messages
+  -l <file> | --log-to=file:
 			prints log messages to file, too. Can be used 0+ times.
-	 <filename>:	last argument is crontab config file,
+   <filename>:	last argument is crontab config file,
 	 			where commands are stored.
 
-syntax:
+## syntax:
 	all blank and commented lines are ignored
 	variables look like VAR_NAME = VAR_CONTENT, where previous variables can be used in VAR_CONTENT like:
 		VAR1 = a
@@ -32,12 +30,12 @@ syntax:
 				which stands for any-value.
 		command		command for shell
 
-execution:
+## execution:
 	commands are executed when the minute, hour and month fields match the current time AND when at least one of the two day fields (day of month/week) match.
 	commands will be run in shell like: `/bin/bash -c 'command'`.
 	cron examines config every minute.
 
-example:
+### example:
 	run:
 	$ ./mycrontab --log-to=mycrontab.log crontab.conf
 	$ cat crontab.conf
