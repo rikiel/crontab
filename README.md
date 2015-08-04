@@ -5,11 +5,11 @@ Project implements subset of crontab functionality.
 Compilation of project can be done by running `make build`. Project has no dependencies.
 
 ## usage:
-  -h | --help:	prints help message
-  -d | --debug:	program will print debug messages
-  -l <file> | --log-to=file:
+	-h | --help:	prints help message
+	-d | --debug:	program will print debug messages
+	-l <file> | --log-to=file:
 			prints log messages to file, too. Can be used 0+ times.
-   <filename>:	last argument is crontab config file,
+	<filename>:	last argument is crontab config file,
 	 			where commands are stored.
 
 ## syntax:
