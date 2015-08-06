@@ -35,8 +35,6 @@ struct logger
 	enum priority p;
 };
 
-extern struct logger logger;
-
 void init_logger();
 void destroy_logger();
 

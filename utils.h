@@ -28,10 +28,6 @@
 
 #define	STR_LENGTH(s)	(sizeof (s))
 
-struct command_config;
-struct command;
-struct variable;
-
 struct list
 {
 	void *item;
@@ -76,6 +72,7 @@ void add_process_to_pgid();
  * kill all subprocessess
  */
 void exit_handler();
+void signal_handler(int);
 
 /*
  * add exit handler

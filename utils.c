@@ -52,8 +52,7 @@ trim(char *str)
 		--end;
 	if (beg != end || *end != '\0')
 		end[1] = '\0';
-	for (; (*str = *beg); ++str, ++beg);
-	// ^^ own strcpy, default do not work.. (ex: " /bin/bash")
+	strcpy(str, beg);
 }
 
 void
@@ -144,6 +143,12 @@ add_process_to_pgid()
 }
 
 void
+signal_handler(int signal)
+{
+	exit_handler();
+}
+
+void
 exit_handler()
 {
 	APP_DEBUG_FNAME;
@@ -164,7 +169,7 @@ set_exit_handler()
 	bzero(&act, sizeof (struct sigaction));
 
 	sigemptyset(&act.sa_mask);
-	act.sa_handler = exit_handler;
+	act.sa_handler = signal_handler;
 	act.sa_flags = 0;
 	if (sigaction(SIGSEGV, &act, NULL) != 0	||
 			sigaction(SIGINT, &act, NULL) != 0) {

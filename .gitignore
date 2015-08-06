@@ -3,3 +3,5 @@
 *.log
 crontab
 mycrontab
+*.py
+*.pyc

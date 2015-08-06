@@ -33,16 +33,6 @@
 #define	CRON_SLEEP_TIME		60
 #define	MAX_ERRORS		10
 
-size_t err = 0;
-
-void
-new_error()
-{
-	if (++err > MAX_ERRORS) {
-		ERR("MAX errors reached, aborting");
-		abort();
-	}
-}
 
 void
 run_cron(const char *config_file)
@@ -59,8 +49,8 @@ run_cron(const char *config_file)
 		DEBUG("cron iteration #%lu", iterations);
 
 		if (read_config(config_file, &cfg)) {
-			WARN("read_config('%s') failed", config_file);
-			new_error();
+			ERR("read_config('%s') failed", config_file);
+			abort();
 		}
 
 		run_commands(cfg);
@@ -84,8 +74,7 @@ run_command(const char *command)
 	switch (i) {
 		case -1:
 			ERR("fork: '%s'", strerror(errno));
-			errno = 0;
-			new_error();
+			abort();
 			break;
 		case 0: // child
 			INFO("FORK ok, RUN: /bin/bash -c '%s'",
@@ -137,6 +126,6 @@ wait_children()
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		assert(WIFEXITED(status));
 		INFO("process %li exited with status %i",
-				(int)pid, (char)status);
+				(int)pid, status);
 	}
 }

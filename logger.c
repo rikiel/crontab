@@ -31,9 +31,10 @@
 #include "logger.h"
 #include "conf.h"
 
-struct logger logger;	// definition
 
 pthread_mutex_t mutex;
+
+struct logger logger;
 
 void
 lock_m()
@@ -75,6 +76,7 @@ destroy_logger()
 		l = l->next;
 	}
 
+	logger.files = NULL;
 	pthread_mutex_destroy(&mutex);
 }
 
@@ -132,22 +134,21 @@ priority_to_string(enum priority p)
 }
 
 int
-get_us()
-{
-	struct timeval t;
-
-	gettimeofday(&t, NULL);
-
-	return (t.tv_usec);
-}
-
-int
 can_log(enum priority p)
 {
-	return (logger.p == debug ||
-		(logger.p == info && p != debug) ||
-		(logger.p == warn && (p == warn || p == error)) ||
-		(logger.p == error && p == error));
+	static enum priority vec[4] = {debug, info, warn, error};
+	int i, j;
+
+	i = j = 0;
+
+	for (; ; ++i)
+	    if (vec[i] == logger.p)
+			break;
+	for (; ; ++j)
+		if (vec[j] == p)
+			break;
+
+	return (i <= j);
 }
 
 // prints time, priority, pids to streams
@@ -159,12 +160,14 @@ print_init_message(enum priority p)
 	struct list *l;
 	time_t t;
 	struct tm date;
+	struct timeval us;
 
 	if (!can_log(p))
 		return (0);
 
 	time(&t);
 	localtime_r(&t, &date);
+	gettimeofday(&us, NULL);
 
 	lock_m();
 
@@ -175,7 +178,7 @@ print_init_message(enum priority p)
 			date.tm_hour,
 			date.tm_min,
 			date.tm_sec,
-			get_us(),
+			(int)us.tv_usec,
 			priority_to_string(p),
 			(int)getpid());
 
@@ -194,7 +197,6 @@ log_message(enum priority p, const char *message, ...)
 
 	if (!print_init_message(p))
 		return;
-
 
 	l = logger.files;
 	while (l != NULL) {
