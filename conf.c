@@ -130,6 +130,7 @@ transform(const struct command_config *c)
 			datetime->tm_mday = c->dom;
 	}
 
+	assert(strlen(c->command) < CONF_COMMAND_MAXLENGTH);
 	strcpy(cmd->cmd, c->command);
 	cmd->seconds = mktime(datetime);
 
@@ -244,6 +245,7 @@ substitute(const char *text, struct list *vars, char *substitued)
 	read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 	write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 
+	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
 	strcpy(read.buff, text);
 
 	while (vars) {
