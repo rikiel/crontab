@@ -8,9 +8,6 @@ TARGET		= mycrontab
 SOURCES		= conf.c crontab.c logger.c main.c utils.c
 OBJECTS		= $(SOURCES:.c=.o)
 
-MAKEDEPENDENCY	= $(CC) -MM -E
-GETDEPENDENCY	= sed 's/^.*://'
-
 ARGS		= --debug --log-to=$(TARGET).log crontab
 run: $(TARGET)
 	./$(TARGET) $(ARGS)
