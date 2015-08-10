@@ -41,6 +41,7 @@ run_cron(const char *config_file)
 
 	size_t iterations = 0;
 	struct list *cfg = NULL;
+	size_t s;
 
 	INFO("cron_daemon: START");
 
@@ -59,7 +60,9 @@ run_cron(const char *config_file)
 		wait_children();
 
 		DEBUG("SLEEPING");
-		sleep(CRON_SLEEP_TIME);
+		s = CRON_SLEEP_TIME;
+		while ((s = sleep(s)) != 0)
+			;
 	}
 }
 
@@ -79,11 +82,11 @@ run_command(const char *command)
 		case 0: // child
 			INFO("FORK ok, RUN: /bin/bash -c '%s'",
 					command);
+			add_process_to_pgid();
+			execl("/bin/bash", "bash", "-c", command, (char *)0);
 			// execl("/bin/bash", "bash", "-c", command, NULL);
 			// ^^ warning: missing sentinel in function
 			// 	call [-Wformat=] on Solaris
-			add_process_to_pgid();
-			execl("/bin/bash", "bash", "-c", command, (char *)0);
 			ERR("exec command failed with error '%s', aborting",
 				strerror(errno));
 			abort();

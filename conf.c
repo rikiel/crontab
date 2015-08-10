@@ -260,6 +260,7 @@ substitute(const char *text, struct list *vars, char *substitued)
 	read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 	write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 
+	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
 	strcpy(read.buff, text);
 
 	while (vars) {
