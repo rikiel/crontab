@@ -62,6 +62,12 @@
 				CONF_REGEX_COMMAND_DOW \
 				CONF_REGEX_COMMAND_COM
 
+#define	check_text_size(text, size, err_message, ...) \
+				if (strlen(text) >= size) { \
+					ERR(err_message, __VA_ARGS__); \
+					abort(); \
+				}
+
 void
 compile_regex(regex_t *reg, const char *text)
 {
@@ -93,14 +99,18 @@ check_line(const char *line)
 {
 	// APP_DEBUG_FNAME;
 
-	if (match(line, CONF_REGEX_IGNORE))
-		return (LINE_IGNORE);
-	if (match(line, CONF_REGEX_VARIABLE))
-		return (LINE_VARIABLE);
-	if (match(line, CONF_REGEX_COMMAND))
-		return (LINE_COMMAND);
+	int out;
 
-	return (LINE_BAD);
+	if (match(line, CONF_REGEX_IGNORE))
+		out = LINE_IGNORE;
+	else if (match(line, CONF_REGEX_VARIABLE))
+		out = LINE_VARIABLE;
+	else if (match(line, CONF_REGEX_COMMAND))
+		out = LINE_COMMAND;
+	else
+		out = LINE_BAD;
+
+	return (out);
 }
 
 struct command *
@@ -130,7 +140,7 @@ transform(const struct command_config *c)
 			datetime->tm_mday = c->dom;
 	}
 
-	strcpy(cmd->cmd, c->command);
+	strncpy(cmd->cmd, c->command, CONF_COMMAND_MAXLENGTH);
 	cmd->seconds = mktime(datetime);
 
 	return (cmd);
@@ -184,7 +194,9 @@ create_cmd(char *text, struct list *vars)
 	c.dow = asterisk;
 	text += n;
 
-	assert(strlen(text) < CONF_COMMAND_MAXLENGTH);
+	check_text_size(text, CONF_COMMAND_MAXLENGTH,
+			"command_length('%s') > maxlength (==%i)",
+			text, CONF_COMMAND_MAXLENGTH);
 	strcpy(c.command, text);
 
 	cmd = transform(&c);
@@ -209,11 +221,15 @@ create_var(char *text, struct list *vars)
 	var = malloc(sizeof (struct variable));
 	n = run_r(CONF_REGEX_VARIABLE, text);
 	trim(text);
-	assert(strlen(text) < CONF_VAR_NAME_MAXLENGTH);
+	check_text_size(text, CONF_VAR_NAME_MAXLENGTH,
+			"variable_length('%s') > maxlength (==%i)",
+			text, CONF_VAR_NAME_MAXLENGTH);
 	strcpy(var->name, text);
 	text += n;
 	trim(text);
-	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
+	check_text_size(text, CONF_SUBSTITUTION_MAXLENGTH,
+			"variable_substitution_length('%s') > maxlength (==%i)",
+			text, CONF_SUBSTITUTION_MAXLENGTH);
 	strcpy(var->substitution, text);
 
 	substitute(var->substitution, vars, var->substitution);
@@ -305,7 +321,7 @@ read_config(const char *filename, struct list **commands)
 	beg_var = NULL;
 	*commands = NULL;
 
-	len = 128;
+	len = CONF_LINE_MAXLENGTH;
 	line = malloc(len);
 
 	input = fopen(filename, "r");
