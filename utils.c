@@ -150,9 +150,9 @@ signal_handler(int signal)
 	destroy_logger();
 
 	if (signal == SIGTERM)
-		_exit(2);
+		_exit(EXIT_FAILURE);
 	else if (signal == SIGUSR1)
-		_exit(0);
+		_exit(EXIT_SUCCESS);
 	else
 		exit_handler();
 }
