@@ -35,17 +35,6 @@
 
 struct list *pids = NULL;
 
-#ifdef NODEF
-int main()
-{
-    char str[1000];
-    strcpy(str, " /bin/bash ");
-    trim(str);
-    printf("%s\n", str); // -> prints "/bin/bssh" on gentoo u-pl21
-    return (0);
-}
-#endif
-
 void
 trim(char *str)
 {
@@ -63,6 +52,7 @@ trim(char *str)
 		--end;
 	if (beg != end || *end != '\0')
 		end[1] = '\0';
+    /*strcpy(str, beg);*/
     while (*beg != '\0')
         *str++ = *beg++;
     *str = '\0';
