@@ -31,7 +31,7 @@
 #include "utils.h"
 
 #define	CRON_SLEEP_TIME		60
-#define	MAX_ERRORS		10
+#define	MAX_ERRORS			10
 
 
 void

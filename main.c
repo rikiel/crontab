@@ -48,7 +48,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 	else
-	    run_cron(*argv);
+		run_cron(*argv);
 
 	destroy_logger();
 

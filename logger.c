@@ -142,7 +142,7 @@ can_log(enum priority p)
 	i = j = 0;
 
 	for (; ; ++i)
-	    if (vec[i] == logger.p)
+		if (vec[i] == logger.p)
 			break;
 	for (; ; ++j)
 		if (vec[j] == p)

@@ -145,6 +145,7 @@ add_process_to_pgid()
 void
 signal_handler(int signal)
 {
+	APP_DEBUG_FNAME;
 	DEBUG("catched signal %i, exit", signal);
 
 	destroy_logger();
