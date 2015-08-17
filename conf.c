@@ -65,7 +65,7 @@
 #define	check_text_size(text, size, err_message, ...) \
 				if (strlen(text) >= size) { \
 					ERR(err_message, __VA_ARGS__); \
-					exit(1); \
+					myexit(EXIT_FAILURE); \
 				}
 
 void

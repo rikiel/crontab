@@ -34,6 +34,8 @@ struct list
 	struct list *next;
 };
 
+void init();
+
 void delete_list(struct list *l);
 
 void swap_ptr(void **p1, void **p2);
@@ -58,15 +60,12 @@ void usage();
 int handle_args(int argc, char **argv);
 
 /*
- * sets process to be group leader for processes
+ * handle all processess after crontab exit
  */
-void set_pgid();
+void register_process(pid_t pid);
+void kill_processess();
 
-/*
- * add process to parent-process-group,
- * so after termination all other processess can be killed via pgid
- */
-void add_process_to_pgid();
+void myexit(int ret);
 
 /*
  * kill all subprocessess

@@ -34,25 +34,23 @@ main(int argc, char **argv)
 	int opts;
 
 	init_logger();
+	set_exit_handler();
+
 	name = basename(argv[0]);
 	opts = handle_args(argc, argv);
-
-	set_pgid();
-	set_exit_handler();
 
 	argc -= opts;
 	argv += opts;
 	if (argc != 1) {
 		ERR("too few/many parameters");
 		usage();
-		exit(1);
+        myexit(EXIT_FAILURE);
 	}
 	else
 		run_cron(*argv);
 
-	destroy_logger();
-
-	return (0);
+    myexit(EXIT_SUCCESS);
+    return (0);
 }
 
 void

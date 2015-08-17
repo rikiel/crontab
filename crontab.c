@@ -31,8 +31,6 @@
 #include "utils.h"
 
 #define	CRON_SLEEP_TIME		60
-#define	MAX_ERRORS			10
-
 
 void
 run_cron(const char *config_file)
@@ -71,29 +69,29 @@ run_command(const char *command)
 {
 	APP_DEBUG_FNAME;
 
-	int i;
+	pid_t i;
 
 	i = fork();
 	switch (i) {
 		case -1:
 			ERR("fork: '%s'", strerror(errno));
-			abort();
+            myexit(EXIT_FAILURE);
 			break;
 		case 0: // child
 			INFO("FORK ok, RUN: /bin/bash -c '%s'",
 					command);
-			add_process_to_pgid();
 			execl("/bin/bash", "bash", "-c", command, (char *)0);
 			// execl("/bin/bash", "bash", "-c", command, NULL);
 			// ^^ warning: missing sentinel in function
 			// 	call [-Wformat=] on Solaris
 			ERR("exec command failed with error '%s', aborting",
 				strerror(errno));
-			abort();
+            myexit(EXIT_FAILURE);
 			break;
 		default:
 			INFO("PID %i created, RUN '%s'",
 					i, command);
+            register_process(i);
 			break;
 	}
 }

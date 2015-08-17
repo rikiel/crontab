@@ -33,7 +33,18 @@
 
 #include "utils.h"
 
-pid_t pgid;
+struct list *pids = NULL;
+
+#ifdef NODEF
+int main()
+{
+    char str[1000];
+    strcpy(str, " /bin/bash ");
+    trim(str);
+    printf("%s\n", str); // -> prints "/bin/bssh" on gentoo u-pl21
+    return (0);
+}
+#endif
 
 void
 trim(char *str)
@@ -52,7 +63,9 @@ trim(char *str)
 		--end;
 	if (beg != end || *end != '\0')
 		end[1] = '\0';
-	strcpy(str, beg);
+    while (*beg != '\0')
+        *str++ = *beg++;
+    *str = '\0';
 }
 
 void
@@ -106,7 +119,7 @@ handle_args(int argc, char **argv)
 		switch (ch) {
 			case 'h':
 				usage();
-				exit(0);
+				myexit(EXIT_SUCCESS);
 				break;
 			case 'd':
 				log_set_priority(debug);
@@ -117,7 +130,7 @@ handle_args(int argc, char **argv)
 			default:
 				ERR("wrong parameter '%s'", optarg);
 				usage();
-				exit(1);
+				myexit(EXIT_FAILURE);
 				break;
 		}
 	}
@@ -127,47 +140,57 @@ handle_args(int argc, char **argv)
 }
 
 void
-set_pgid()
+register_process(pid_t pid)
 {
-	APP_DEBUG_FNAME;
+    APP_DEBUG_FNAME;
 
-	pgid = getpgid(0);
+    struct list *l = malloc(sizeof (struct list));
+    l->item = malloc(sizeof (pid_t));
+    *(pid_t *)l->item = pid;
+    l->next = pids;
+
+    pids = l;
 }
 
 void
-add_process_to_pgid()
+kill_processess()
 {
-	APP_DEBUG_FNAME;
+    APP_DEBUG_FNAME;
+    WARN("killing all fork-ed processes");
 
-	setpgid(getpid(), pgid);
+    pid_t *p;
+    while (pids != NULL) {
+        p = pids->item;
+        INFO("killing pid %i", *p);
+        kill(*p, SIGTERM);
+        pids = pids->next;
+    }
+    delete_list(pids);
+    pids = NULL;
+}
+
+void
+myexit(int ret)
+{
+    APP_DEBUG_FNAME;
+
+    DEBUG("myexit(%i)", ret);
+    destroy_logger();
+    _exit(ret);
 }
 
 void
 signal_handler(int signal)
 {
 	APP_DEBUG_FNAME;
-	DEBUG("catched signal %i, exit", signal);
+	DEBUG("catched signal %i", signal);
 
-	destroy_logger();
-
-	if (signal == SIGTERM)
-		_exit(EXIT_FAILURE);
-	else if (signal == SIGUSR1)
-		_exit(EXIT_SUCCESS);
-	else
-		exit_handler();
-}
-
-void
-exit_handler()
-{
-	APP_DEBUG_FNAME;
-
-	assert(pgid > 0);
-
-	destroy_logger();
-	WARN("killing all subprocessess for pgid '%i'", (int)pgid);
-	kill(-pgid, SIGTERM);	// kills me too..
+    if (signal == SIGUSR1)
+        myexit(EXIT_SUCCESS);
+    else {
+        kill_processess();
+        myexit(EXIT_FAILURE);
+    }
 }
 
 void
@@ -187,8 +210,6 @@ set_exit_handler()
 		WARN("sigactions was not set, err=%s", strerror(errno));
 		errno = 0;
 	}
-
-	atexit(exit_handler);
 }
 
 #ifdef __sun
