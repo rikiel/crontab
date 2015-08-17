@@ -65,7 +65,7 @@
 #define	check_text_size(text, size, err_message, ...) \
 				if (strlen(text) >= size) { \
 					ERR(err_message, __VA_ARGS__); \
-					abort(); \
+					exit(1); \
 				}
 
 void
@@ -114,7 +114,7 @@ check_line(const char *line)
 }
 
 struct command *
-transform(const struct command_config *c)
+transform(struct command_config *c)
 {
 	APP_DEBUG_FNAME;
 
@@ -140,8 +140,9 @@ transform(const struct command_config *c)
 			datetime->tm_mday = c->dom;
 	}
 
-	strncpy(cmd->cmd, c->command, CONF_COMMAND_MAXLENGTH);
 	cmd->seconds = mktime(datetime);
+	cmd->cmd = c->command;
+	c->command = NULL;
 
 	return (cmd);
 }
@@ -194,9 +195,8 @@ create_cmd(char *text, struct list *vars)
 	c.dow = asterisk;
 	text += n;
 
-	check_text_size(text, CONF_COMMAND_MAXLENGTH,
-			"command_length('%s') > maxlength (==%i)",
-			text, CONF_COMMAND_MAXLENGTH);
+	assert(strlen(text) > 0);
+	c.command = malloc((1 + strlen(text)) * sizeof (char));
 	strcpy(c.command, text);
 
 	cmd = transform(&c);
@@ -260,7 +260,9 @@ substitute(const char *text, struct list *vars, char *substitued)
 	read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 	write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
 
-	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
+	check_text_size(text, CONF_SUBSTITUTION_MAXLENGTH,
+			"substitution_length('%s') > maxlength (==%i)",
+			text, CONF_SUBSTITUTION_MAXLENGTH);
 	strcpy(read.buff, text);
 
 	while (vars) {
@@ -290,7 +292,7 @@ substitute(const char *text, struct list *vars, char *substitued)
 		}
 
 		n = min(strlen(read.ptr), maxlength);
-		assert(n < maxlength);
+		assert(n < maxlength && "substitution buffer overflow");
 		strncpy(write.ptr, read.ptr, n);
 		write.ptr[n] = '\0';
 

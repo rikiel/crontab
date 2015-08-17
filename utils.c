@@ -145,7 +145,16 @@ add_process_to_pgid()
 void
 signal_handler(int signal)
 {
-	exit_handler();
+	DEBUG("catched signal %i, exit", signal);
+
+	destroy_logger();
+
+	if (signal == SIGTERM)
+		_exit(2);
+	else if (signal == SIGUSR1)
+		_exit(0);
+	else
+		exit_handler();
 }
 
 void
@@ -155,8 +164,8 @@ exit_handler()
 
 	assert(pgid > 0);
 
-	WARN("killing all subprocessess for pgid '%i'", (int)pgid);
 	destroy_logger();
+	WARN("killing all subprocessess for pgid '%i'", (int)pgid);
 	kill(-pgid, SIGTERM);	// kills me too..
 }
 
@@ -172,7 +181,8 @@ set_exit_handler()
 	act.sa_handler = signal_handler;
 	act.sa_flags = 0;
 	if (sigaction(SIGSEGV, &act, NULL) != 0	||
-			sigaction(SIGINT, &act, NULL) != 0) {
+			sigaction(SIGINT, &act, NULL) != 0 ||
+			sigaction(SIGTERM, &act, NULL) != 0) {
 		WARN("sigactions was not set, err=%s", strerror(errno));
 		errno = 0;
 	}

@@ -26,10 +26,8 @@
 #include <regex.h>
 
 #define	CONF_VAR_NAME_MAXLENGTH		10
-#define	CONF_COMMAND_MAXLENGTH		128
-#define	CONF_SUBSTITUTION_MAXLENGTH	CONF_COMMAND_MAXLENGTH
-#define	CONF_LINE_MAXLENGTH		(CONF_SUBSTITUTION_MAXLENGTH + \
-						CONF_COMMAND_MAXLENGTH)
+#define	CONF_SUBSTITUTION_MAXLENGTH	512
+#define	CONF_LINE_MAXLENGTH		(CONF_SUBSTITUTION_MAXLENGTH * 2)
 
 struct list;
 
@@ -40,7 +38,7 @@ struct variable {
 
 struct command {
     time_t seconds;
-    char cmd[CONF_COMMAND_MAXLENGTH + 1];
+    char *cmd;
 };
 
 /*
@@ -53,7 +51,7 @@ struct command_config {
     char dom;
     char month;
     char dow;
-    char command[CONF_COMMAND_MAXLENGTH + 1];
+    char *command;
 };
 
 /*
@@ -94,7 +92,7 @@ int match(const char *text, const char *regex_str);
  * transformation from command_config representation to command representation
  *  computing next execution time in seconds
  */
-struct command *transform(const struct command_config *c);
+struct command *transform(struct command_config *c);
 
 /*
  * runs matching of `regex_str` on `text`
