@@ -1,7 +1,7 @@
 /*
  * File: main.c
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,39 +19,13 @@
  * USA.
  */
 
-#include <stdlib.h>	// exit
-#include <libgen.h>	// basename
+#include <stdlib.h>
+#include <libgen.h>
 
 #include "crontab.h"
 #include "utils.h"
 
-
 const char *name = NULL;	// need in usage()
-
-int
-main(int argc, char **argv)
-{
-	int opts;
-
-	init_logger();
-	set_exit_handler();
-
-	name = basename(argv[0]);
-	opts = handle_args(argc, argv);
-
-	argc -= opts;
-	argv += opts;
-	if (argc != 1) {
-		ERR("too few/many parameters");
-		usage();
-        myexit(EXIT_FAILURE);
-	}
-	else
-		run_cron(*argv);
-
-    myexit(EXIT_SUCCESS);
-    return (0);
-}
 
 void
 usage()
@@ -61,4 +35,29 @@ usage()
 		"\t%s [-h | --help]\n"
 		"\t%s [-d | --debug] [-l |--log-to=filename] <filename>",
 		name, name);
+}
+
+
+int
+main(int argc, char **argv)
+{
+	int opts;
+
+	init_logger();
+	set_signal_handler();
+
+	name = basename(argv[0]);
+	opts = handle_args(argc, argv);
+
+	argc -= opts;
+	argv += opts;
+	if (argc != 1) {
+		ERR("too few/many arguments");
+		usage();
+		myabort();
+	}
+
+	run_cron(*argv);
+	myexit(EXIT_SUCCESS);
+	return (0);
 }

@@ -1,7 +1,7 @@
 /*
  * File: conf.c
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -21,38 +21,31 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <regex.h>
 #include <string.h>
-#include <assert.h>
 
 #include "conf.h"
+#include "logger.h"
 #include "utils.h"
 
-#define	min(n1, n2)		((n1 < n2) ? n1 : n2)
-
-#define	__TOSTRING__(X)		#X
-#define	__TOSTRING__2(X)	__TOSTRING__(X)
-
-// REGEXes for matching crontab config file:
+// REGEXes for matching crontab config:
 
 // commented/empty lines
 #define	CONF_REGEX_IGNORE	"^[[:blank:]]*(#|$)"
-// variable: name=..
-//  where `name` is 1..n characters long
-#define	CONF_REGEX_VARIABLE \
-				"([[:alnum:]]{1," \
-				__TOSTRING__2(CONF_VAR_NAME_MAXLENGTH) \
-				"})[[:blank:]]*="
 
-// digits or '*' and blank characters
-#define	CONF_REGEX_COMMAND_MIN	"([*[:digit:]]|[1-5][0-9])[[:blank:]]+"
-#define	CONF_REGEX_COMMAND_HOUR	"([*[:digit:]]|1[0-9]|2[0-3])[[:blank:]]+"
-#define	CONF_REGEX_COMMAND_DOM	"([*[:digit:]]|[12][0-9]|3[01])[[:blank:]]+"
-#define	CONF_REGEX_COMMAND_MON	"([*[:digit:]]|1[0-2])[[:blank:]]+"
-#define	CONF_REGEX_COMMAND_DOW	"([*[0-7])[[:blank:]]+"
-// more than one non-blank character
+// variable: name=substitution
+#define	CONF_REGEX_VARIABLE	"([[:alnum:]]+)[[:blank:]]*="
+
+// command lines:
+// 	-> digits or '*'
+#define	CONF_REGEX_COMMAND_MIN	"([*0-9]|[1-5][0-9])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_HOUR	"([*0-9]|1[0-9]|2[0-3])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_DOM	"([*0-9]|[12][0-9]|3[01])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_MON	"([*0-9]|1[0-2])[[:blank:]]+"
+#define	CONF_REGEX_COMMAND_DOW	"([*0-7])[[:blank:]]+"
+// and command.. >1 non-blank character
 #define	CONF_REGEX_COMMAND_COM	".*[^[:blank:]].*$"
 
+// and full command line:
 #define	CONF_REGEX_COMMAND \
 				"[[:blank:]]*" \
 				CONF_REGEX_COMMAND_MIN \
@@ -62,11 +55,244 @@
 				CONF_REGEX_COMMAND_DOW \
 				CONF_REGEX_COMMAND_COM
 
-#define	check_text_size(text, size, err_message, ...) \
-				if (strlen(text) >= size) { \
-					ERR(err_message, __VA_ARGS__); \
-					myexit(EXIT_FAILURE); \
-				}
+// allocate string with '\0'
+#define	alloc_string(string) \
+				alloc_string_size(strlen(string))
+#define	alloc_string_size(size) \
+				(malloc((size + 1) * sizeof (char)))
+
+#define	min(n1, n2)		((n1 < n2) ? n1 : n2)
+#define	max(n1, n2)		((n1 > n2) ? n1 : n2)
+
+
+size_t
+max_var_name_len(struct list *vars)
+{
+	size_t n = 0;
+	for (; vars != NULL; vars = vars->next)
+		n = max(n, strlen(((struct variable *)vars->item)->name));
+	return (n);
+}
+
+struct list *
+read_config(const char *filename)
+{
+	APP_DEBUG_FNAME;
+
+	struct list *beg_cmd;
+	struct list *beg_var;
+	struct list *l;
+	FILE *in;
+	char *line;
+	size_t len;
+	ssize_t read_len;
+
+	beg_cmd = NULL;
+	beg_var = NULL;
+
+	len = CONF_LINE_MAXLENGTH;
+	line = alloc_string_size(len);
+
+	in = fopen(filename, "r");
+	if (in == NULL) {
+		ERR("fopen(%s): %s", strerr());
+	}
+	else
+	{
+		while ((read_len = getline(&line, &len, in)) != -1) {
+			// remove \n from the end
+			if (read_len > 0)
+				line[read_len - 1] = '\0';
+
+			switch (check_line(line)) {
+				case LINE_VARIABLE:
+					l = malloc(sizeof (struct list));
+					l->next = beg_var;
+					l->item = create_var(line, beg_var);
+					beg_var = l;
+					break;
+				case LINE_COMMAND:
+					l = malloc(sizeof (struct list));
+					l->next = beg_cmd;
+					l->item = create_cmd(line, beg_var);
+					beg_cmd = l;
+				case LINE_BAD:
+					WARN("bad line structure '%s'", line);
+					break;
+				case LINE_IGNORE:
+					DEBUG("ignoring line '%s'", line);
+					break;
+			}
+			l = NULL;
+		}
+		if (ferror(in))
+			WARN("ferror while reading '%s', try to continue",
+					filename);
+
+		fclose(in);
+
+		print_cfg(beg_var, beg_cmd);
+	}
+	free(line);
+	delete_list(&beg_var);
+
+	return (beg_cmd);
+}
+
+void
+substitute(const char *text, struct list *variables, char *substitued)
+{
+	APP_DEBUG_FNAME;
+
+	regex_t reg;
+	regmatch_t match;
+	char *regstr;	// stored regexp '\$VAR'
+	size_t n;
+	size_t maxlength;
+	struct variable *v;
+	struct {
+		char *buff;
+		char *ptr;
+	} read, write;
+
+#define	subst_buff_check(size) \
+	if ((size) > CONF_SUBSTITUTION_MAXLENGTH) { \
+		ERR("substitution buffer overflow"); \
+		myabort(); \
+	}
+
+	subst_buff_check(strlen(text));
+
+	regstr = alloc_string_size(max_var_name_len(variables));
+	strcpy(regstr, "\\$");
+
+	read.buff = alloc_string_size(CONF_SUBSTITUTION_MAXLENGTH);
+	write.buff = alloc_string_size(CONF_SUBSTITUTION_MAXLENGTH);
+
+	strcpy(read.buff, text);
+
+	while (variables) {
+		v = variables->item;
+		maxlength = CONF_SUBSTITUTION_MAXLENGTH;
+		read.ptr = read.buff;
+		write.ptr = write.buff;
+		strcpy(regstr + 2, v->name);
+		compile_regex(&reg, regstr);
+
+		while (regexec(&reg, read.ptr, 1, &match, 0) == 0) {
+			// copy string before $VAR
+			n = min(match.rm_so, maxlength);
+			strncpy(write.ptr, read.ptr, n);
+			write.ptr[n] = '\0';
+			write.ptr += n;
+			read.ptr += match.rm_eo;	// go after $VAR
+			maxlength -= n;
+
+			// copy $VAR substitution
+			n = min(strlen(v->substitution), maxlength);
+			subst_buff_check(n);
+			strncpy(write.ptr, v->substitution, n);
+			write.ptr[n] = '\0';
+			write.ptr += n;
+			maxlength -= n;
+		}
+
+		n = min(strlen(read.ptr), maxlength);
+		subst_buff_check(n);
+		strncpy(write.ptr, read.ptr, n);
+		write.ptr[n] = '\0';
+
+		swap_ptr((void **)&write.buff, (void **)&read.buff);
+
+		variables = variables->next;
+	}
+
+	DEBUG("substitued '%s' ~> '%s'", text, read.buff);
+	strcpy(substitued, read.buff);
+
+	free(read.buff);
+	free(write.buff);
+}
+
+struct variable *
+create_var(char *text, struct list *vars)
+{
+	APP_DEBUG_FNAME;
+
+	if (check_line(text) != LINE_VARIABLE) {
+		ERR("create_var()");
+		myabort();
+	}
+
+	size_t n;
+	struct variable *var;
+
+	var = malloc(sizeof (struct variable));
+	n = run_r(CONF_REGEX_VARIABLE, text);
+	trim(text);
+	var->name = alloc_string(text);
+	strcpy(var->name, text);
+	text += n;
+	trim(text);
+	var->substitution = alloc_string(text);
+	strcpy(var->substitution, text);
+
+	substitute(var->substitution, vars, var->substitution);
+
+	DEBUG("variable '%s = %s' created", var->name, var->substitution);
+
+	return (var);
+}
+
+struct command *
+create_cmd(char *text, struct list *vars)
+{
+	APP_DEBUG_FNAME;
+
+	if (check_line(text) != LINE_COMMAND) {
+		ERR("create_cmd()");
+		myabort();
+	}
+
+	struct command *cmd;
+	struct command_config c;
+	size_t n;
+
+#define	asterisk (strcmp(text, "*") == 0) ? -1 : strtol(text, NULL, 10)
+
+	n = run_r(CONF_REGEX_COMMAND_MIN, text);
+	c.min = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_HOUR, text);
+	c.hour = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_DOM, text);
+	c.dom = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_MON, text);
+	c.month = asterisk;
+	text += n;
+	n = run_r(CONF_REGEX_COMMAND_DOW, text);
+	c.dow = asterisk;
+	text += n;
+
+	if (strlen(text) <= 0) {
+		ERR("command_length <= 0");
+		myabort();
+	}
+
+	c.cmd = alloc_string(text);
+	strcpy(c.cmd, text);
+
+	cmd = transform(&c);
+	substitute(cmd->cmd, vars, cmd->cmd);
+
+	DEBUG("command '%s: %s' created",
+			time_to_string(cmd->seconds), cmd->cmd);
+
+	return (cmd);
+
+}
 
 void
 compile_regex(regex_t *reg, const char *text)
@@ -75,7 +301,7 @@ compile_regex(regex_t *reg, const char *text)
 
 	if (regcomp(reg, text, REG_EXTENDED) != 0) {
 		ERR("regcomp(%s)", text);
-		abort();
+		myabort();
 	}
 }
 
@@ -90,25 +316,6 @@ match(const char *text, const char *regex_str)
 	compile_regex(&reg, regex_str);
 	out = (regexec(&reg, text, 0, NULL, 0) == 0);
 	regfree(&reg);
-
-	return (out);
-}
-
-int
-check_line(const char *line)
-{
-	// APP_DEBUG_FNAME;
-
-	int out;
-
-	if (match(line, CONF_REGEX_IGNORE))
-		out = LINE_IGNORE;
-	else if (match(line, CONF_REGEX_VARIABLE))
-		out = LINE_VARIABLE;
-	else if (match(line, CONF_REGEX_COMMAND))
-		out = LINE_COMMAND;
-	else
-		out = LINE_BAD;
 
 	return (out);
 }
@@ -141,8 +348,8 @@ transform(struct command_config *c)
 	}
 
 	cmd->seconds = mktime(datetime);
-	cmd->cmd = c->command;
-	c->command = NULL;
+	cmd->cmd = c->cmd;
+	c->cmd = NULL;
 
 	return (cmd);
 }
@@ -151,13 +358,16 @@ size_t
 run_r(const char *regex_str, char *text)
 {
 	// APP_DEBUG_FNAME;
-	assert(match(text, regex_str));
+
+	if (!match(text, regex_str)) {
+		ERR("!match(regex)");
+		myabort();
+	}
 
 	regex_t reg;
 	regmatch_t match;
 
 	compile_regex(&reg, regex_str);
-	// args: regexec(REGEXP, TEXT, MATCH_ARRAY_SIZE, MATCH_ARRAY, FLAGS)
 	regexec(&reg, text, 1, &match, 0);
 	text[match.rm_eo - 1] = '\0';
 	regfree(&reg);
@@ -165,211 +375,21 @@ run_r(const char *regex_str, char *text)
 	return (match.rm_eo);
 }
 
-struct command *
-create_cmd(char *text, struct list *vars)
-{
-	APP_DEBUG_FNAME;
-
-	assert(check_line(text) == LINE_COMMAND);
-
-	struct command *cmd;
-	struct command_config c;
-	size_t n;
-
-#define	asterisk (strcmp(text, "*") == 0) ? -1 : strtol(text, NULL, 10)
-	// ^^ matched by regexp, so no errors should occur
-
-	n = run_r(CONF_REGEX_COMMAND_MIN, text);
-	c.min = asterisk;
-	text += n;
-	n = run_r(CONF_REGEX_COMMAND_HOUR, text);
-	c.hour = asterisk;
-	text += n;
-	n = run_r(CONF_REGEX_COMMAND_DOM, text);
-	c.dom = asterisk;
-	text += n;
-	n = run_r(CONF_REGEX_COMMAND_MON, text);
-	c.month = asterisk;
-	text += n;
-	n = run_r(CONF_REGEX_COMMAND_DOW, text);
-	c.dow = asterisk;
-	text += n;
-
-	assert(strlen(text) > 0);
-	c.command = malloc((1 + strlen(text)) * sizeof (char));
-	strcpy(c.command, text);
-
-	cmd = transform(&c);
-	substitute(cmd->cmd, vars, cmd->cmd);
-
-	DEBUG("command '%s: %s' created",
-			time_to_string(cmd->seconds), cmd->cmd);
-
-	return (cmd);
-}
-
-struct variable *
-create_var(char *text, struct list *vars)
-{
-	APP_DEBUG_FNAME;
-
-	assert(check_line(text) == LINE_VARIABLE);
-
-	size_t n;
-	struct variable *var;
-
-	var = malloc(sizeof (struct variable));
-	n = run_r(CONF_REGEX_VARIABLE, text);
-	trim(text);
-	check_text_size(text, CONF_VAR_NAME_MAXLENGTH,
-			"variable_length('%s') > maxlength (==%i)",
-			text, CONF_VAR_NAME_MAXLENGTH);
-	strcpy(var->name, text);
-	text += n;
-	trim(text);
-	check_text_size(text, CONF_SUBSTITUTION_MAXLENGTH,
-			"variable_substitution_length('%s') > maxlength (==%i)",
-			text, CONF_SUBSTITUTION_MAXLENGTH);
-	strcpy(var->substitution, text);
-
-	substitute(var->substitution, vars, var->substitution);
-
-	DEBUG("variable '%s = %s' created", var->name, var->substitution);
-
-	return (var);
-}
-
-void
-substitute(const char *text, struct list *vars, char *substitued)
-{
-	APP_DEBUG_FNAME;
-	assert(strlen(text) < CONF_SUBSTITUTION_MAXLENGTH);
-
-	regex_t reg;
-	regmatch_t match;
-	char regstr[CONF_VAR_NAME_MAXLENGTH + 3] = {'\\', '$'};
-	// ^^ there will be regexp \$VAR
-	struct variable *v;
-	size_t n;
-	size_t maxlength;
-	struct {
-		char *buff;
-		char *ptr;
-	} read, write;
-
-	read.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
-	write.buff = malloc((CONF_SUBSTITUTION_MAXLENGTH + 1) * sizeof (char));
-
-	check_text_size(text, CONF_SUBSTITUTION_MAXLENGTH,
-			"substitution_length('%s') > maxlength (==%i)",
-			text, CONF_SUBSTITUTION_MAXLENGTH);
-	strcpy(read.buff, text);
-
-	while (vars) {
-		v = (struct variable *)vars->item;
-		maxlength = CONF_SUBSTITUTION_MAXLENGTH;
-		read.ptr = read.buff;
-		write.ptr = write.buff;
-		strcpy(regstr + 2, v->name);
-		compile_regex(&reg, regstr);
-
-		while (regexec(&reg, read.ptr, 1, &match, 0) == 0) {
-			// copy string before "$VAR"
-			n = min(match.rm_so, maxlength);
-			strncpy(write.ptr, read.ptr, n);
-			write.ptr[n] = '\0';
-			write.ptr += n;
-			read.ptr += match.rm_eo;	// go after $VAR
-			maxlength -= n;
-
-			// copy $VAR substitution
-			n = min(strlen(v->substitution), maxlength);
-			assert(n < maxlength);
-			strncpy(write.ptr, v->substitution, n);
-			write.ptr[n] = '\0';
-			write.ptr += n;
-			maxlength -= n;
-		}
-
-		n = min(strlen(read.ptr), maxlength);
-		assert(n < maxlength && "substitution buffer overflow");
-		strncpy(write.ptr, read.ptr, n);
-		write.ptr[n] = '\0';
-
-		swap_ptr((void**)&write.buff, (void**)&read.buff);
-
-		vars = vars->next;
-	}
-	DEBUG("substitute('%s') = '%s'", text, read.buff);
-	strcpy(substitued, read.buff);
-
-	free(read.buff);
-	free(write.buff);
-}
-
 int
-read_config(const char *filename, struct list **commands)
+check_line(const char *line)
 {
-	APP_DEBUG_FNAME;
+	// APP_DEBUG_FNAME;
 
-	struct list *beg_cmd;
-	struct list *beg_var;
-	struct list *l;
-	FILE *input;
-	char *line;
-	size_t len;
-	ssize_t read_length;
+	int out;
 
-	beg_cmd = NULL;
-	beg_var = NULL;
-	*commands = NULL;
+	if (match(line, CONF_REGEX_IGNORE))
+		out = LINE_IGNORE;
+	else if (match(line, CONF_REGEX_VARIABLE))
+		out = LINE_VARIABLE;
+	else if (match(line, CONF_REGEX_COMMAND))
+		out = LINE_COMMAND;
+	else
+		out = LINE_BAD;
 
-	len = CONF_LINE_MAXLENGTH;
-	line = malloc(len);
-
-	input = fopen(filename, "r");
-	if (input == NULL) {
-		ERR("fopen(%s)", filename);
-		free(line);
-		return (-1);
-	}
-
-	while ((read_length = getline(&line, &len, input)) != -1) {
-	// delete \n from the end
-		if (read_length > 0)
-			line[read_length - 1] = '\0';
-		switch (check_line(line)) {
-			case LINE_VARIABLE:
-				l = (struct list *)
-					malloc(sizeof (struct list));
-				l->next = beg_var;
-				l->item = create_var(line, beg_var);
-				beg_var = l;
-				break;
-			case LINE_COMMAND:
-				l = (struct list *)
-					malloc(sizeof (struct list));
-				l->next = beg_cmd;
-				l->item = create_cmd(line, beg_var);
-				beg_cmd = l;
-				break;
-			case LINE_BAD:
-				WARN("bad line structure");
-			case LINE_IGNORE:
-				DEBUG("ignoring line '%s'", line);
-				break;
-		}
-		l = NULL;
-	}
-	if (ferror(input))
-		WARN("ERROR while reading '%s', trying to continue", filename);
-
-	print_cfg(beg_var, beg_cmd);
-
-	fclose(input);
-	free(line);
-	delete_list(beg_var);
-
-	*commands = beg_cmd;
-	return (0);
+	return (out);
 }

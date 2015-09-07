@@ -1,7 +1,7 @@
 /*
  * File: logger.h
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,20 +22,13 @@
 #ifndef LOGGER_H
 #define	LOGGER_H
 
-#include "utils.h"
-
 enum priority
 {
 	debug, info, warn, error
 };
 
-struct logger
-{
-	struct list *files;
-	enum priority p;
-};
-
 void init_logger();
+
 void destroy_logger();
 
 // add file for log messages
@@ -47,12 +40,11 @@ void log_set_priority(enum priority p);
 void log_message(enum priority p, const char *message, ...);
 
 
-#define	DEBUG(...)	log_message(debug, __VA_ARGS__)
-#define	INFO(...)	log_message(info, __VA_ARGS__)
-#define	WARN(...)	log_message(warn, __VA_ARGS__)
-#define	ERR(...)	log_message(error, __VA_ARGS__)
+#define	DEBUG(...)		log_message(debug, __VA_ARGS__)
+#define	INFO(...) 		log_message(info, __VA_ARGS__)
+#define	WARN(...) 		log_message(warn, __VA_ARGS__)
+#define	ERR(...)  		log_message(error, __VA_ARGS__)
 
-#define	APP_DEBUG_FNAME \
-			DEBUG("BEGIN_FUNCTION: %s()", __PRETTY_FUNCTION__)
+#define	APP_DEBUG_FNAME		DEBUG("BEGIN_FUNCTION: %s()", __func__)
 
 #endif /* !LOGGER_H */

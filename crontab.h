@@ -1,7 +1,7 @@
 /*
  * File: crontab.h
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -38,10 +38,5 @@ void run_commands(const struct list *cmd);
  * run command: "bash -c $command"
  */
 void run_command(const char *command);
-
-/*
- * calls waitpid() on all fork-ed child processes
- */
-void wait_children();
 
 #endif /* !CRONTAB_H */

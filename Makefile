@@ -11,7 +11,6 @@ OBJECTS		= $(SOURCES:.c=.o)
 ARGS		= --debug --log-to=$(TARGET).log crontab
 run: $(TARGET)
 	./$(TARGET) $(ARGS)
-tests: run
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $(TARGET)
@@ -22,9 +21,10 @@ build: $(OBJECTS)
 debug: build
 	gdb $(TARGET)
 
-conf.o: conf.c conf.h utils.h logger.h
-crontab.o: crontab.c crontab.h conf.h utils.h logger.h
-logger.o: logger.c logger.h utils.h conf.h
+# prerequisites:
+conf.o: conf.c conf.h logger.h utils.h
+crontab.o: crontab.c crontab.h conf.h logger.h utils.h
+logger.o: logger.c logger.h conf.h utils.h
 main.o: main.c crontab.h utils.h logger.h
 utils.o: utils.c utils.h logger.h
 
@@ -36,4 +36,4 @@ cstyle:
 	./cstyle.pl *.[ch]
 
 clean:
-	rm -f *.o *.log $(TARGET)
+	rm -f *.o *.log *.lock $(TARGET)

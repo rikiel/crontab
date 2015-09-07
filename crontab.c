@@ -1,7 +1,7 @@
 /*
  * File: crontab.c
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,80 +19,43 @@
  * USA.
  */
 
-#include <errno.h>	// errno
-#include <unistd.h>	// fork
-#include <string.h>	// strerror
-#include <stdlib.h>	// abort
-#include <assert.h>	// assert
-#include <sys/wait.h>	// waitpid
+
+#include <unistd.h>
+#include <stdlib.h>
 
 #include "crontab.h"
 #include "conf.h"
+#include "logger.h"
 #include "utils.h"
+
 
 #define	CRON_SLEEP_TIME		60
 
+
 void
-run_cron(const char *config_file)
+run_cron(const char *filename)
 {
 	APP_DEBUG_FNAME;
 
-	size_t iterations = 0;
+	size_t iter = 0;
 	struct list *cfg = NULL;
-	size_t s;
+	size_t tosleep;
 
-	INFO("cron_daemon: START");
+	INFO("START cron_daemon");
 
 	while (1) {
-		++iterations;
-		DEBUG("cron iteration #%lu", iterations);
+		++iter;
+		DEBUG("cron iteration #%lu", iter);
 
-		if (read_config(config_file, &cfg)) {
-			ERR("read_config('%s') failed", config_file);
-			abort();
-		}
-
+		cfg = read_config(filename);
 		run_commands(cfg);
-		delete_list(cfg);
-
+		delete_list(&cfg);
 		wait_children();
 
-		DEBUG("SLEEPING");
-		s = CRON_SLEEP_TIME;
-		while ((s = sleep(s)) != 0)
+		DEBUG("SLEEP cron_daemon");
+		tosleep = CRON_SLEEP_TIME;
+		while ((tosleep = sleep(tosleep)) != 0)
 			;
-	}
-}
-
-void
-run_command(const char *command)
-{
-	APP_DEBUG_FNAME;
-
-	pid_t i;
-
-	i = fork();
-	switch (i) {
-		case -1:
-			ERR("fork: '%s'", strerror(errno));
-            myexit(EXIT_FAILURE);
-			break;
-		case 0: // child
-			INFO("FORK ok, RUN: /bin/bash -c '%s'",
-					command);
-			execl("/bin/bash", "bash", "-c", command, (char *)0);
-			// execl("/bin/bash", "bash", "-c", command, NULL);
-			// ^^ warning: missing sentinel in function
-			// 	call [-Wformat=] on Solaris
-			ERR("exec command failed with error '%s', aborting",
-				strerror(errno));
-            myexit(EXIT_FAILURE);
-			break;
-		default:
-			INFO("PID %i created, RUN '%s'",
-					i, command);
-            register_process(i);
-			break;
 	}
 }
 
@@ -105,28 +68,41 @@ run_commands(const struct list *cmd)
 	struct command *c;
 
 	time(&now);
-	now = now / 60 * 60;
+	now = (now / 60) * 60;
 
 	while (cmd) {
-		c = (struct command *)cmd->item;
+		c = cmd->item;
 
-		// vv should be run in this minute
 		if (abs(now - c->seconds) < CRON_SLEEP_TIME / 2)
 			run_command(c->cmd);
+
 		cmd = cmd->next;
 	}
 }
 
 void
-wait_children()
+run_command(const char *command)
 {
 	APP_DEBUG_FNAME;
 
-	int status;
-	pid_t pid;
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		assert(WIFEXITED(status));
-		INFO("process %li exited with status %i",
-				(int)pid, status);
+	pid_t p;
+
+	p = fork();
+	switch (p) {
+		case -1:
+			ERR("fork: '%s'", strerr());
+			myabort();
+			break;
+		case 0:
+			INFO("fork() OK, run() /bin/bash -c '%s'", command);
+
+			execl("/bin/bash", "bash", "-c", command, (char *)NULL);
+
+			ERR("exec(%s) failed: %s; aborting", command, strerr());
+			myabort();
+		default:
+			INFO("pid %i created to run '%s'", (int)p, command);
+			register_process(p);
+			break;
 	}
 }

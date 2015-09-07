@@ -1,7 +1,7 @@
 /*
  * File: logger.c
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -21,45 +21,73 @@
 
 
 #include <stdio.h>
-#include <stdlib.h>	// abort
-#include <stdarg.h>	// variadic functions
-#include <sys/time.h>	// gettimeofday
-#include <unistd.h>	// getpid
-#include <assert.h>	// assert
-#include <pthread.h>	// mutex
+#include <stdlib.h>
+#include <stdarg.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <sys/file.h>
 
 #include "logger.h"
 #include "conf.h"
+#include "utils.h"
 
 
-pthread_mutex_t mutex;
-
-struct logger logger;
-
-void
-lock_m()
+struct logger
 {
-	if (pthread_mutex_lock(&mutex) != 0)
-		abort();
-}
-void
-unlock_m()
+	struct list *files;
+	enum priority p;
+	FILE *lock;
+};
+
+static struct logger logger = { NULL, info };
+
+#define	log_to_all(...)	{ \
+		struct list *l = logger.files; \
+		while (l != NULL) { \
+			fprintf(l->item, __VA_ARGS__); \
+			l = l->next; \
+		} \
+	}
+#define	log_flush_all() { \
+		struct list *l = logger.files; \
+		while (l != NULL) { \
+			fflush(l->item); \
+			l = l->next; \
+		} \
+	}
+
+
+static void
+lock()
 {
-	if (pthread_mutex_unlock(&mutex) != 0)
-		abort();
+	if (lockf(fileno(logger.lock), F_LOCK, 0) != 0) {
+		ERR("lock: %s", strerr());
+		myabort();
+	}
 }
+
+static void
+unlock()
+{
+	log_flush_all();
+
+	if (lockf(fileno(logger.lock), F_ULOCK, 0) != 0) {
+		ERR("unlock: %s", strerr());
+		myabort();
+	}
+}
+
 
 void
 init_logger()
 {
-	APP_DEBUG_FNAME;
-
 	logger.p = info;
 	logger.files = malloc(sizeof (struct list));
 	logger.files->next = NULL;
 	logger.files->item = stdout;
+	logger.lock = fopen("lock.lock", "w+");
 
-	pthread_mutex_init(&mutex, NULL);
+	DEBUG("logger inited");
 }
 
 void
@@ -76,18 +104,16 @@ destroy_logger()
 		l = l->next;
 	}
 
-	logger.files = NULL;
-	pthread_mutex_destroy(&mutex);
+	delete_list(&logger.files);
+	fclose(logger.lock);
 }
 
-// sets logger priority for output
 void
 log_set_priority(enum priority p)
 {
 	logger.p = p;
 }
 
-// add file for log messages
 void
 log_to_file(const char *filename)
 {
@@ -95,18 +121,17 @@ log_to_file(const char *filename)
 
 	FILE *f;
 	struct list *l;
+
 	f = fopen(filename, "w");
 	if (f == NULL || ferror(f)) {
 		ERR("fopen log file '%s' failed, continue", filename);
 		return;
 	}
-	l = logger.files;
-	while (l->next != NULL)
-		l = l->next;
-	l->next = malloc(sizeof (struct list));
-	l = l->next;
-	l->next = NULL;
+	l = malloc(sizeof (struct list));
+	l->next = logger.files;
 	l->item = f;
+
+	logger.files = l;
 }
 
 const char *
@@ -127,8 +152,6 @@ priority_to_string(enum priority p)
 		case error:
 			out = "ERROR";
 			break;
-		default:
-			abort();
 	}
 	return (out);
 }
@@ -151,13 +174,11 @@ can_log(enum priority p)
 	return (i <= j);
 }
 
-// prints time, priority, pids to streams
 int
 print_init_message(enum priority p)
 {
 	// display 2 (/5) numbers
 #define	PRINT_PATTERN	"%02i:%02i:%02i:%05i\t[%s]\t<%i>\t"
-	struct list *l;
 	time_t t;
 	struct tm date;
 	struct timeval us;
@@ -169,11 +190,7 @@ print_init_message(enum priority p)
 	localtime_r(&t, &date);
 	gettimeofday(&us, NULL);
 
-	lock_m();
-
-	l = logger.files;
-	while (l != NULL) {
-		fprintf(l->item,
+	log_to_all(
 			PRINT_PATTERN,
 			date.tm_hour,
 			date.tm_min,
@@ -182,12 +199,9 @@ print_init_message(enum priority p)
 			priority_to_string(p),
 			(int)getpid());
 
-		l = l->next;
-	}
 	return (1);
 }
 
-// prints message to logger
 void
 log_message(enum priority p, const char *message, ...)
 {
@@ -195,67 +209,57 @@ log_message(enum priority p, const char *message, ...)
 	struct list *l;
 	FILE *f;
 
-	if (!print_init_message(p))
-		return;
+	lock();
 
-	l = logger.files;
-	while (l != NULL) {
-		va_start(va, message);
+	if (print_init_message(p)) {
+		l = logger.files;
+		while (l != NULL) {
+			va_start(va, message);
 
-		f = l->item;
-		vfprintf(f, message, va);
-		fprintf(f, "\n");
-		fflush(f);
+			f = l->item;
+			vfprintf(f, message, va);
+			fprintf(f, "\n");
 
-		l = l->next;
-		va_end(va);
+			l = l->next;
+			va_end(va);
+		}
 	}
 
-	unlock_m();
+	unlock();
 }
 
 void
 print_cfg(const struct list *variables, const struct list *commands)
 {
 	APP_DEBUG_FNAME;
+
 	struct variable *v;
 	struct command *c;
-	struct list *l;
-	FILE *f;
-	const struct list *var;
-	const struct list *cmd;
 
-	if (!print_init_message(info))
-		return;
+	lock();
 
-	l = logger.files;
-	while (l != NULL) {
-		var = variables;
-		cmd = commands;
-		f = l->item;
-		fprintf(f, "%s",
-				"CONFIG:\n"
-				"*******CRON VARIABLES:*******\n");
-		while (var != NULL) {
-			v = (struct variable *)var->item;
+	if (print_init_message(info)) {
+		log_to_all("CONFIG:\n");
+		log_to_all("*******CRON VARIABLES:*******\n");
 
-			fprintf(f, "%s = %s\n",
-					v->name, v->substitution);
-
-			var = var->next;
+		while (variables != NULL) {
+			v = variables->item;
+			log_to_all("%s = %s\n",
+					v->name,
+					v->substitution);
+			variables = variables->next;
 		}
-		fprintf(f, "*******CRON COMMANDS:*******\n");
-		while (cmd != NULL) {
-			c = (struct command *)cmd->item;
 
-			fprintf(f, "%s; cmd: %s\n",
+		log_to_all("*******CRON COMMANDS:*******\n");
+
+		while (commands != NULL) {
+			c = commands->item;
+			log_to_all("%s; cmd:%s\n",
 					time_to_string(c->seconds),
 					c->cmd);
-
-			cmd = cmd->next;
+			commands = commands->next;
 		}
-		fflush(f);
-		l = l->next;
 	}
-	unlock_m();
+
+	unlock();
 }

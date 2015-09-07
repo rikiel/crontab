@@ -1,7 +1,7 @@
 /*
  * File: utils.c
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,21 +19,71 @@
  * USA.
  */
 
-
-#include <string.h>	// strlen
-#include <strings.h>	// bzero
-#include <ctype.h>	// isspace
-#include <stdlib.h>	// exit
-#include <stdio.h>	// fclose
-#include <getopt.h>	// long_opts
-#include <errno.h>	// errno
-#include <unistd.h>	// fork
-#include <signal.h>	// kill
-#include <assert.h>	// assert
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <strings.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #include "utils.h"
 
 struct list *pids = NULL;
+
+void
+delete_list(struct list **lptr)
+{
+	struct list *next;
+	struct list *l;
+
+	if (lptr == NULL)
+		return;
+
+	l = *lptr;
+	while (l != NULL) {
+		next = l->next;
+		free(l);
+		l = next;
+	}
+	*lptr = NULL;
+}
+
+void
+swap_ptr(void **p1, void **p2)
+{
+	void *p;
+
+	p = *p1;
+	*p1 = *p2;
+	*p2 = p;
+}
+
+const char *
+strerr()
+{
+	const char *ptr = strerror(errno);
+	errno = 0;
+	return (ptr);
+}
+
+const char *
+time_to_string(time_t t)
+{
+#define	TIME_FORMAT	"DD.MM.YYYY HH:MM:SS"
+#define	TIME_STR_LEN	(sizeof (TIME_FORMAT))
+
+	static char buff[TIME_STR_LEN];
+	struct tm date;
+
+	localtime_r(&t, &date);
+	strftime(buff, TIME_STR_LEN, "%d.%m.%Y %H:%M:%S", &date);
+
+	return (buff);
+}
 
 void
 trim(char *str)
@@ -52,44 +102,9 @@ trim(char *str)
 		--end;
 	if (beg != end || *end != '\0')
 		end[1] = '\0';
-    /*strcpy(str, beg);*/
-    while (*beg != '\0')
-        *str++ = *beg++;
-    *str = '\0';
-}
-
-void
-swap_ptr(void **p1, void **p2)
-{
-	void *p = *p2;
-	*p2 = *p1;
-	*p1 = p;
-}
-
-void
-delete_list(struct list *l)
-{
-	// APP_DEBUG_FNAME;
-
-	struct list *next;
-	while (l) {
-		next = l->next;
-		free(l);
-		l = next;
-	}
-}
-
-const char *
-time_to_string(time_t t)
-{
-#define	TIME_FORMAT	"DD.MM.YYYY HH:MM:SS"
-	static char buff[STR_LENGTH(TIME_FORMAT)];
-	struct tm date;
-
-	localtime_r(&t, &date);
-	strftime(buff, STR_LENGTH(TIME_FORMAT), "%d.%m.%Y %H:%M:%S", &date);
-
-	return (buff);
+	while (*beg != '\0')
+		*str++ = *beg++;
+	*str = '\0';
 }
 
 int
@@ -120,7 +135,7 @@ handle_args(int argc, char **argv)
 			default:
 				ERR("wrong parameter '%s'", optarg);
 				usage();
-				myexit(EXIT_FAILURE);
+				myabort();
 				break;
 		}
 	}
@@ -132,59 +147,81 @@ handle_args(int argc, char **argv)
 void
 register_process(pid_t pid)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    struct list *l = malloc(sizeof (struct list));
-    l->item = malloc(sizeof (pid_t));
-    *(pid_t *)l->item = pid;
-    l->next = pids;
+	struct list *l;
 
-    pids = l;
+	l = malloc(sizeof (struct list));
+	l->item = malloc(sizeof (pid_t));
+	memcpy(l->item, &pid, sizeof (pid_t));
+	l->next = pids;
+
+	pids = l;
 }
 
 void
 kill_processess()
 {
-    APP_DEBUG_FNAME;
-    WARN("killing all fork-ed processes");
+	APP_DEBUG_FNAME;
+	WARN("killing all forked processess");
+	pid_t *p;
+	while (pids != NULL) {
+		p = pids->item;
+		INFO("killing pid %i", (int)*p);
+		kill(*p, SIGTERM);
+		pids = pids->next;
+	}
+	delete_list(&pids);
+	wait_children();
+}
 
-    pid_t *p;
-    while (pids != NULL) {
-        p = pids->item;
-        INFO("killing pid %i", *p);
-        kill(*p, SIGTERM);
-        pids = pids->next;
-    }
-    delete_list(pids);
-    pids = NULL;
+void
+signal_handler(int sig)
+{
+	APP_DEBUG_FNAME;
+	DEBUG("catched signal %i", sig);
+
+	if (sig == SIGUSR1)
+		myexit(EXIT_SUCCESS);
+	else {
+		kill_processess();
+		myabort();
+	}
+}
+
+void
+wait_children()
+{
+	APP_DEBUG_FNAME;
+
+	int status;
+	pid_t p;
+
+	while ((p = waitpid(-1, &status, WNOHANG)) > 0)
+		INFO("process %i exited with status %i",
+				(int)p, (int)status);
 }
 
 void
 myexit(int ret)
 {
-    APP_DEBUG_FNAME;
+	APP_DEBUG_FNAME;
 
-    DEBUG("myexit(%i)", ret);
-    destroy_logger();
-    _exit(ret);
+	DEBUG("myexit(%i)", ret);
+	destroy_logger();
+	exit(ret);
 }
 
 void
-signal_handler(int signal)
+myabort()
 {
 	APP_DEBUG_FNAME;
-	DEBUG("catched signal %i", signal);
 
-    if (signal == SIGUSR1)
-        myexit(EXIT_SUCCESS);
-    else {
-        kill_processess();
-        myexit(EXIT_FAILURE);
-    }
+	myexit(EXIT_FAILURE);
 }
 
 void
-set_exit_handler()
+set_signal_handler()
 {
 	APP_DEBUG_FNAME;
 
@@ -196,15 +233,13 @@ set_exit_handler()
 	act.sa_flags = 0;
 	if (sigaction(SIGSEGV, &act, NULL) != 0	||
 			sigaction(SIGINT, &act, NULL) != 0 ||
-			sigaction(SIGTERM, &act, NULL) != 0) {
-		WARN("sigactions was not set, err=%s", strerror(errno));
-		errno = 0;
-	}
+			sigaction(SIGTERM, &act, NULL) != 0 ||
+			sigaction(SIGUSR1, &act, NULL) != 0)
+		WARN("sigactions was not set, err=%s", strerr());
 }
 
-#ifdef __sun
 
-#include <assert.h>
+#ifdef __sun
 
 int
 getline(char **line_ptr, size_t *line_size, FILE *stream)
@@ -221,7 +256,10 @@ getline(char **line_ptr, size_t *line_size, FILE *stream)
 		*ptr++ = ch;
 		++n;
 	}
-	assert(*line_size != n + 1);
+	if (*line_size == n + 1) {
+		ERR("getline");
+		myabort();
+	}
 	ptr[1] = '\0';
 
 	if (ch == EOF && n == 0)

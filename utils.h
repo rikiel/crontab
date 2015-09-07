@@ -1,7 +1,7 @@
 /*
  * File: utils.h
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,7 +26,6 @@
 
 #include "logger.h"
 
-#define	STR_LENGTH(s)	(sizeof (s))
 
 struct list
 {
@@ -34,13 +33,13 @@ struct list
 	struct list *next;
 };
 
-void init();
-
-void delete_list(struct list *l);
+void delete_list(struct list **lptr);
 
 void swap_ptr(void **p1, void **p2);
 
-const char * time_to_string(time_t t);
+const char *strerr();
+
+const char *time_to_string(time_t t);
 
 /*
  * removes all blank-characters from beginning and end
@@ -64,19 +63,17 @@ int handle_args(int argc, char **argv);
  */
 void register_process(pid_t pid);
 void kill_processess();
-
-void myexit(int ret);
-
-/*
- * kill all subprocessess
- */
-void exit_handler();
 void signal_handler(int);
 
 /*
- * add exit handler
+ * calls waitpid() on all fork-ed child processes
  */
-void set_exit_handler();
+void wait_children();
+
+void myexit(int ret);
+void myabort();
+
+void set_signal_handler();
 
 #ifdef __sun
 #include <stdio.h>

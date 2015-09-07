@@ -1,7 +1,7 @@
 /*
  * File: conf.h
  *
- * Copyright (C) 2015 Richard Eliáš <richard@ba30.eu>
+ * Copyright (C) 2015 Richard Eliáš <richard.elias@matfyz.cz>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,15 +25,14 @@
 #include <time.h>
 #include <regex.h>
 
-#define	CONF_VAR_NAME_MAXLENGTH		10
+#define	CONF_LINE_MAXLENGTH		512
 #define	CONF_SUBSTITUTION_MAXLENGTH	512
-#define	CONF_LINE_MAXLENGTH		(CONF_SUBSTITUTION_MAXLENGTH * 2)
 
 struct list;
 
 struct variable {
-    char name[CONF_VAR_NAME_MAXLENGTH + 1];
-    char substitution[CONF_SUBSTITUTION_MAXLENGTH + 1];
+    char *name;
+    char *substitution;
 };
 
 struct command {
@@ -51,16 +50,14 @@ struct command_config {
     char dom;
     char month;
     char dow;
-    char *command;
+    char *cmd;
 };
 
 /*
- * reads cron config `filename`,
- * output is stored in `commands` as list of command-s
- *
- * returns 0 if no errors occurred, otherwise -1
+ * reads cron config `filename`
+ * return list of command-s
  */
-int read_config(const char *filename, struct list **commands);
+struct list *read_config(const char *filename);
 
 /*
  * make substitution of $VAR from variables in `text`
@@ -101,6 +98,7 @@ struct command *transform(struct command_config *c);
  */
 size_t run_r(const char *regex_str, char *text);
 
+
 #define	LINE_IGNORE		1
 #define	LINE_VARIABLE		2
 #define	LINE_COMMAND		3
@@ -119,5 +117,7 @@ int check_line(const char *line);
  * definition in logger.cpp
  */
 void print_cfg(const struct list *variables, const struct list *commands);
+
+size_t max_var_name_len(struct list *vars);
 
 #endif /* !CONF_H */
