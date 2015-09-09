@@ -33,7 +33,7 @@
 #define	CONF_REGEX_IGNORE	"^[[:blank:]]*(#|$)"
 
 // variable: name=substitution
-#define	CONF_REGEX_VARIABLE	"([[:alnum:]]+)[[:blank:]]*="
+#define	CONF_REGEX_VARIABLE	"^([[:alpha:][:digit:]_]+)[[:blank:]]*="
 
 // command lines:
 // 	-> digits or '*'
@@ -47,7 +47,7 @@
 
 // and full command line:
 #define	CONF_REGEX_COMMAND \
-				"[[:blank:]]*" \
+				"^[[:blank:]]*" \
 				CONF_REGEX_COMMAND_MIN \
 				CONF_REGEX_COMMAND_HOUR \
 				CONF_REGEX_COMMAND_DOM \
@@ -95,7 +95,8 @@ read_config(const char *filename)
 
 	in = fopen(filename, "r");
 	if (in == NULL) {
-		ERR("fopen(%s): %s", strerr());
+		ERR("fopen('%s'): %s", filename, strerr());
+		myabort();
 	}
 	else
 	{
@@ -239,7 +240,7 @@ create_var(char *text, struct list *vars)
 
 	substitute(var->substitution, vars, var->substitution);
 
-	DEBUG("variable '%s = %s' created", var->name, var->substitution);
+	DEBUG("variable '%s' = '%s' created", var->name, var->substitution);
 
 	return (var);
 }
@@ -300,6 +301,7 @@ compile_regex(regex_t *reg, const char *text)
 	// APP_DEBUG_FNAME;
 
 	if (regcomp(reg, text, REG_EXTENDED) != 0) {
+		DEBUG("%i", regcomp(reg, text, REG_EXTENDED));
 		ERR("regcomp(%s)", text);
 		myabort();
 	}
