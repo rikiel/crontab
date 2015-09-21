@@ -117,6 +117,7 @@ read_config(const char *filename)
 					l->next = beg_cmd;
 					l->item = create_cmd(line, beg_var);
 					beg_cmd = l;
+                    break;
 				case LINE_BAD:
 					WARN("bad line structure '%s'", line);
 					break;

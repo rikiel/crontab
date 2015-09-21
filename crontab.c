@@ -94,8 +94,6 @@ run_command(const char *command)
 			myabort();
 			break;
 		case 0:
-			INFO("fork() OK, run() /bin/bash -c '%s'", command);
-
 			execl("/bin/bash", "bash", "-c", command, (char *)NULL);
 
 			ERR("exec(%s) failed: %s; aborting", command, strerr());
