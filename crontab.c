@@ -57,7 +57,7 @@ run_cron(const char *filename)
 		do {
 			tosleep = sleep(tosleep);
 
-			exit_if_signal_catched();
+			signal_exit();
 		} while (tosleep != 0);
 	}
 }

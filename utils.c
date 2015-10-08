@@ -183,7 +183,7 @@ signal_handler(int sig)
 }
 
 void
-exit_if_signal_catched()
+signal_exit()
 {
 	int sig = _sig;
 	if (sig == -1)
