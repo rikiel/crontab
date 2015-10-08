@@ -64,6 +64,7 @@ int handle_args(int argc, char **argv);
 void register_process(pid_t pid);
 void kill_processess();
 void signal_handler(int);
+void exit_if_signal_catched();
 
 /*
  * calls waitpid() on all fork-ed child processes

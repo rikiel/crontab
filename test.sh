@@ -12,7 +12,9 @@ generate_crontab() {
 
 }
 run() {
-	make run
+	make build
+	./mycrontab -d --log-to=test.log crontab
 }
-generate_crontab
+#generate_crontab
+sleep 70 && killall -s 15 mycrontab &
 run

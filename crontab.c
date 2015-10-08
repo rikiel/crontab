@@ -54,8 +54,11 @@ run_cron(const char *filename)
 
 		DEBUG("SLEEP cron_daemon");
 		tosleep = CRON_SLEEP_TIME;
-		while ((tosleep = sleep(tosleep)) != 0)
-			;
+		do {
+			tosleep = sleep(tosleep);
+
+			exit_if_signal_catched();
+		} while (tosleep != 0);
 	}
 }
 

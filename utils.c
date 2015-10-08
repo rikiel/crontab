@@ -32,7 +32,8 @@
 
 #include "utils.h"
 
-struct list *pids = NULL;
+struct list *pids			= NULL;
+volatile sig_atomic_t _sig	= -1;
 
 void
 delete_list(struct list **lptr)
@@ -178,6 +179,16 @@ kill_processess()
 void
 signal_handler(int sig)
 {
+	_sig = sig;
+}
+
+void
+exit_if_signal_catched()
+{
+	int sig = _sig;
+	if (sig == -1)
+	    return;
+
 	APP_DEBUG_FNAME;
 	DEBUG("catched signal %i", sig);
 

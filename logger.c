@@ -32,6 +32,8 @@
 #include "utils.h"
 
 
+#define	LOGGER_LOCK_FILE	".lock"
+
 struct logger
 {
 	struct list *files;
@@ -85,7 +87,7 @@ init_logger()
 	logger.files = malloc(sizeof (struct list));
 	logger.files->next = NULL;
 	logger.files->item = stdout;
-	logger.lock = fopen("lock.lock", "w+");
+	logger.lock = fopen(LOGGER_LOCK_FILE, "w+");
 
 	DEBUG("logger inited");
 }
@@ -106,6 +108,7 @@ destroy_logger()
 
 	delete_list(&logger.files);
 	fclose(logger.lock);
+	remove(LOGGER_LOCK_FILE);
 }
 
 void
